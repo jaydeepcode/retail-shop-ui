@@ -1,8 +1,11 @@
-import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
+import { Component, EventEmitter, inject, Input, OnInit, Output } from '@angular/core';
 import { CustomerProfile } from '../../model/model';
 import { CustomerService } from '../../services/CustomerService';
 import { FormControl } from '@angular/forms';
 import { debounceTime, distinctUntilChanged } from 'rxjs';
+import { Router } from '@angular/router';
+import { MatDialog } from '@angular/material/dialog';
+import { WaterPurchaseRegisterComponent } from '../water-purchase-register/water-purchase-register.component';
 
 @Component({
   selector: 'app-search-customer',
@@ -14,8 +17,13 @@ export class SearchCustomerComponent implements OnInit {
   searchTerm: FormControl = new FormControl('');
   customers: CustomerProfile[] = [];
   filteredCustomers: CustomerProfile[] = [];
+  frequentCustomers: CustomerProfile[] = []; // Populate this with frequent customer data
+  displayedColumns: string[] = ['customerName', 'contactNum'];
 
-  constructor(private customerService: CustomerService) { }
+  constructor(private customerService: CustomerService,
+    private router: Router,
+    private dialog: MatDialog,
+  ) { }
 
   ngOnInit(): void {
     this.searchTerm.valueChanges.pipe(
@@ -33,6 +41,8 @@ export class SearchCustomerComponent implements OnInit {
   }
 
   onRowClick(profile: CustomerProfile) {
-    this.selectedCustomer.emit(profile);
+    this.router.navigate([`/transact-customer/${profile.custId}`]);
   }
+
+  openRegistrationForm(): void { this.dialog.open(WaterPurchaseRegisterComponent, { width: '80vw' }); }
 }

@@ -1,10 +1,73 @@
-table {
-    width: auto;
+.search-container {
+    display: table;
+}
 
-    .table-row{
-        td:hover {
-            cursor: pointer;
-        }
-    }
-   
+.search-container .form-label {
+    margin-right: 10px;
+}
+
+.search-input {
+    flex: 1;
+    max-width: 300px;
+    /* Adjust the max-width as needed */
+    margin-right: 10px;
+}
+
+.register-icon-button {
+    background-color: #007bff;
+    color: #ffffff;
+    position: relative;
+    margin-left: 1rem;
+}
+
+.register-icon-button:hover {
+    background-color: #0056b3;
+}
+
+.table-row:hover {
+    cursor: pointer;
+    background-color: #f1f1f1;
+}
+
+.mat-elevation-z8{
+    min-width: 20vw;
+    max-width: 20vw;
+}
+
+
+/* Customize the table header background and text color */
+.mat-header-row {
+    background-color: #0056b3;
+    /* Dark blue for high contrast */
+    color: white;
+    /* White text for readability */
+}
+
+/* Customize the table cell background and text color */
+.mat-row {
+    background-color: #ffffff;
+    /* White background for rows */
+    color: #333;
+    /* Dark text for readability */
+}
+
+/* Add hover effect on table rows */
+.mat-row:hover {
+    background-color: #e0e0e0;
+    /* Light gray for hover effect */
+}
+
+/* Customize the table cell padding and borders */
+.mat-cell,
+.mat-header-cell {
+    padding: 16px;
+    /* Adjust padding as needed */
+    border-bottom: 1px solid #ccc;
+    /* Light gray borders */
+}
+
+/* Additional styling for alternating row colors */
+.mat-row:nth-child(odd) {
+    background-color: #f9f9f9;
+    /* Very light gray for alternating row color */
 }

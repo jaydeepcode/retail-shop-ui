@@ -1,0 +1,24 @@
+.form-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 15px;
+  }
+  
+  .form-field {
+    flex: 1;
+    margin-right: 10px;
+  }
+  
+  .form-field:last-child {
+    margin-right: 0;
+  }
+  
+  .submit-button {
+    background-color: #007bff;
+    color: #ffffff;
+  }
+  
+  .submit-button:hover {
+    background-color: #0056b3;
+  }
+  

@@ -1,17 +1,21 @@
-<div class="mb-3">
-  <label for="customerList" class="form-label">Search by Name</label>
-  <input class="form-control" list="customerNames" id="customerList" [formControl]="searchTerm"
-    placeholder="Type to search...">
+<div class="search-container mt-2">
+  <mat-form-field appearance="outline">
+    <mat-label>Search by Name</mat-label>
+    <input matInput list="customerNames" id="customerList" [formControl]="searchTerm" placeholder="Type to search...">
+  </mat-form-field>
+  <button mat-mini-fab color="primary" class="register-icon-button" (click)="openRegistrationForm()">
+    <mat-icon svgIcon="register_customer"></mat-icon>
+  </button>
 </div>
-<table class="table table-striped">
-  <thead>
-    <th>Customer Name</th>
-    <th>Contact Number</th>
-  </thead>
-  <tbody>
-    <tr class="table-row" *ngFor="let customer of filteredCustomers" (click)="onRowClick(customer)">
-      <td>{{customer.custName}}</td>
-      <td>{{customer.contactNum}}</td>
-    </tr>
-  </tbody>
-</table>
+<mat-table [dataSource]="filteredCustomers" style="width: 20%;" class="mat-elevation-z8">
+  <ng-container matColumnDef="customerName">
+    <mat-header-cell *matHeaderCellDef> Customer Name </mat-header-cell>
+    <mat-cell *matCellDef="let customer"> {{customer.customerName}} </mat-cell>
+  </ng-container>
+  <ng-container matColumnDef="contactNum">
+    <mat-header-cell *matHeaderCellDef> Contact Number </mat-header-cell>
+    <mat-cell *matCellDef="let customer"> {{customer.contactNum}} </mat-cell>
+  </ng-container>
+  <mat-header-row *matHeaderRowDef="displayedColumns"></mat-header-row>
+  <mat-row *matRowDef="let row; columns: displayedColumns;" (click)="onRowClick(row)"></mat-row>
+</mat-table>

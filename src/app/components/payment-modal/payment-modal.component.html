@@ -1,23 +1,29 @@
-<div class="modal fade" id="paymentModal" tabindex="-1" aria-labelledby="paymentModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title" id="paymentModalLabel">Payment Amount</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-        </div>
-        <div class="modal-body">
-          <form>
-            <div class="mb-3">
-              <label for="paymentAmount" class="form-label">Enter Amount</label>
-              <input type="number" class="form-control" id="paymentAmount"  [(ngModel)]="data.input" name="paymentAmount">
-            </div>
-          </form>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-          <button type="button" class="btn btn-primary" (click)="submitPayment()">Submit</button>
-        </div>
-      </div>
-    </div>
-  </div>
-  
+<div @transitionMessages>
+  <h2 mat-dialog-title>Payment Mode</h2>
+  <mat-dialog-content>
+    <form [formGroup]="payFormGroup">
+      <mat-form-field appearance="fill">
+        <mat-label>Amount Paid</mat-label>
+        <input matInput type="number" formControlName="paymentAmount" name="amount" required>
+        <mat-error
+          *ngIf="payFormGroup.get('paymentAmount')?.invalid && (payFormGroup.get('paymentAmount')?.dirty || payFormGroup.get('paymentAmount')?.touched)">
+          Amount is required </mat-error>
+      </mat-form-field>
+
+      <mat-form-field appearance="fill">
+        <mat-label>Payment Mode</mat-label>
+        <mat-select formControlName="paymentMode" name="paymentMode" required>
+          <mat-option value="CASH">Cash</mat-option>
+          <mat-option value="UPI">UPI</mat-option>
+        </mat-select>
+        <mat-error
+          *ngIf="payFormGroup.get('paymentMode')?.invalid && (payFormGroup.get('paymentMode')?.dirty || payFormGroup.get('paymentMode')?.touched)">
+          Payment mode is required </mat-error>
+      </mat-form-field>
+    </form>
+  </mat-dialog-content>
+  <mat-dialog-actions align="center">
+    <button mat-raised-button color="accent" (click)="onCancel()">Cancel</button>
+    <button mat-flat-button color="primary" (click)="onSave()" [disabled]="!payFormGroup.valid">Submit</button>
+  </mat-dialog-actions>
+</div>

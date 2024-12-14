@@ -1,0 +1,15 @@
+<h1 mat-dialog-title>Confirm Trip</h1>
+<div mat-dialog-content>
+    <form [formGroup]="confirmationForm">
+        <mat-form-field>
+            <mat-label>Amount</mat-label>
+            <input matInput formControlName="amount" type="number">
+            <mat-error *ngIf="confirmationForm.get('amount')?.hasError('required')"> Amount is required </mat-error>
+            <mat-error *ngIf="confirmationForm.get('amount')?.hasError('min')"> Amount should be greater than 0 </mat-error>
+        </mat-form-field>
+    </form>
+</div>
+<div mat-dialog-actions>
+    <button mat-button (click)="onCancel()">Cancel</button>
+    <button mat-button color="primary" (click)="onConfirm()" [disabled]="!confirmationForm.valid">Confirm</button>
+</div>

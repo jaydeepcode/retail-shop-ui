@@ -1,0 +1,65 @@
+<h1 mat-dialog-title>Register New Water Purchase Party</h1>
+<div mat-dialog-content>
+    <form [formGroup]="registrationForm" (ngSubmit)="onSubmit()">
+        <div class="form-row">
+            <mat-form-field class="form-field">
+                <input matInput placeholder="Customer Name" formControlName="customerName" required>
+                <mat-error *ngIf="registrationForm.get('customerName')?.hasError('required')">
+                    Customer Name is required
+                </mat-error>
+                <mat-error *ngIf="registrationForm.get('customerName')?.hasError('minlength')"> Customer Name must be at
+                    least 3 characters long </mat-error>
+                <mat-error *ngIf="registrationForm.get('customerName')?.hasError('pattern')"> Please enter a valid name
+                    (letters, hyphens, spaces only) </mat-error>
+            </mat-form-field>
+            <mat-form-field class="form-field">
+                <input matInput placeholder="Contact Number" formControlName="contactNum" required>
+                <mat-error *ngIf="registrationForm.get('contactNum')?.hasError('required')">
+                    Contact Number is required
+                </mat-error>
+                <mat-error *ngIf="registrationForm.get('contactNum')?.hasError('pattern')">
+                    Please enter a valid phone number
+                </mat-error>
+                <mat-error *ngIf="registrationForm.get('contactNum')?.hasError('alreadyRegistered')"> This contact
+                    number is already registered 
+                </mat-error>
+            </mat-form-field>
+        </div>
+        <div class="form-row">
+            <mat-form-field class="form-field">
+                <mat-select placeholder="Storage Type" formControlName="storageType" required>
+                    <mat-option *ngFor="let type of storageTypes" [value]="type">{{ type }}</mat-option>
+                </mat-select>
+                <mat-error *ngIf="registrationForm.get('storageType')?.hasError('required')">
+                    Storage Type is required
+                </mat-error>
+            </mat-form-field>
+            <mat-form-field class="form-field">
+                <input matInput placeholder="Capacity" formControlName="capacity" type="number" required>
+                <mat-error *ngIf="registrationForm.get('capacity')?.hasError('required')">
+                    Capacity is required
+                </mat-error>
+                <mat-error *ngIf="registrationForm.get('capacity')?.hasError('pattern')">
+                    Please enter a valid number
+                </mat-error>
+            </mat-form-field>
+            <mat-form-field class="form-field">
+                <input matInput placeholder="Vehicle Number (Optional)" formControlName="vehicleNumber">
+            </mat-form-field>
+        </div>
+        <div class="form-row">
+            <mat-form-field class="form-field">
+                <textarea matInput placeholder="Address (Optional)" formControlName="address"></textarea>
+            </mat-form-field>
+        </div>
+        <div class="form-row">
+            <mat-form-field class="form-field">
+                <textarea matInput placeholder="Notes (Optional)" formControlName="notes"></textarea>
+            </mat-form-field>
+        </div>
+        <button mat-raised-button color="primary" type="submit" class="submit-button">Register</button>
+    </form>
+</div>
+<div mat-dialog-actions>
+    <button mat-button (click)="dialogRef.close()">Cancel</button>
+</div>

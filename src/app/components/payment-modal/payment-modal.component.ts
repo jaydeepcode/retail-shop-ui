@@ -1,23 +1,35 @@
-import { Component, Inject } from '@angular/core';
-import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { animate, state, style, transition, trigger } from '@angular/animations';
+import { Component, inject } from '@angular/core';
+import { FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 
 @Component({
   selector: 'app-payment-modal',
   templateUrl: './payment-modal.component.html',
-  styleUrl: './payment-modal.component.scss'
+  styleUrl: './payment-modal.component.scss',
+  animations: [trigger('transitionMessages', [
+    state('void', style({ opacity: 0 })),
+    state('*', style({ opacity: 1 })),
+    transition(':enter', [animate('300ms ease-in')]),
+    transition(':leave', [animate('300ms ease-out')])])]
 })
 export class PaymentModalComponent {
 
-  constructor(
-     public dialogRef : MatDialogRef<PaymentModalComponent>,
-    @Inject(MAT_DIALOG_DATA) public data:any
-  ){}
+  readonly dialogRef = inject(MatDialogRef<PaymentModalComponent>);
+  readonly fb = inject(FormBuilder);
+  readonly data = inject(MAT_DIALOG_DATA);
+
+  payFormGroup: FormGroup = this.fb.group({
+    paymentAmount: [this.data.paymentAmount, Validators.required],
+    paymentMode: ['', Validators.required],
+  });
+
 
   onCancel() {
     this.dialogRef.close();
   }
 
-  onSave(){
-    this.dialogRef.close(this.data);
+  onSave() {
+    this.dialogRef.close(this.payFormGroup.value);
   }
 }

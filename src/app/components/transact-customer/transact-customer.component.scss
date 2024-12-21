@@ -21,3 +21,107 @@
     text-align: center;
     font-size: x-large;
 }
+
+.scrollable-table-container {
+    max-height: 400px;
+    /* Set your desired height */
+    overflow: auto;
+    width: 100%;
+}
+
+.sticky-header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background-color: #e9dada73;
+}
+
+.mat-mdc-row:hover .mat-mdc-cell {
+    border-color: currentColor;
+    background-color: aqua;
+    background-color: #e0e0e0;
+    font-weight: bold;
+}
+
+.mat-mdc-row .mat-mdc-cell {
+    border-bottom: 1px solid transparent;
+    border-top: 1px solid transparent;
+    cursor: pointer;
+    background-color: #f5f5f5;
+}
+
+.btn-primary {
+    background-color: #007bff;
+    border-color: #007bff;
+    color: white;
+}
+
+.btn-danger {
+    background-color: #dc3545;
+    border-color: #dc3545;
+    color: white;
+}
+
+.card-header,
+.card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.card-footer {
+    justify-content: flex-end;
+}
+
+.fa {
+    margin-right: 0.5rem;
+}
+
+.title-background {
+    background-color: #1976d2d6;
+    /* Blue background */
+    color: #ffffff;
+    /* White text color */
+    padding: 0.5rem 1rem;
+    /* Padding for better spacing */
+    border-radius: 4px 4px 0 0;
+    /* Rounded top corners */
+}
+
+.badge-container {
+    position: relative;
+    margin-right: 1rem;
+    /* Adjust spacing as needed */
+    display: flex;
+    align-items: center;
+}
+
+.badge-container {
+    position: relative;
+    margin-right: 1rem;
+    /* Adjust spacing as needed */
+    display: flex;
+    align-items: center;
+}
+
+.circle-badge {
+    width: 43px;
+    height: 43px;
+    background-color: #ff5722;
+    /* Attention-grabbing color */
+    border-radius: 50%;
+    /* Makes the badge circular */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    font-size: 1rem;
+    position: relative;
+    cursor: pointer;
+}
+
+.circle-badge span {
+    font-size: 1.4rem;
+    /* Adjust text size */
+}

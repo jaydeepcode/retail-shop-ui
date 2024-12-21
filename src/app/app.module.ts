@@ -22,6 +22,9 @@ import { PaymentModalComponent } from './components/payment-modal/payment-modal.
 import { SearchCustomerComponent } from './components/search-customer/search-customer.component';
 import { TransactCustomerComponent } from './components/transact-customer/transact-customer.component';
 import { WaterPurchaseRegisterComponent } from './components/water-purchase-register/water-purchase-register.component';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatPaginatedTabHeader } from '@angular/material/tabs';
+import { MatPaginatorModule } from '@angular/material/paginator';
 
 @NgModule({
   imports: [
@@ -39,7 +42,9 @@ import { WaterPurchaseRegisterComponent } from './components/water-purchase-regi
     MatIconModule,
     MatCardModule,
     MatTableModule,
-    MatMenuModule
+    MatMenuModule,
+    MatSlideToggleModule,
+    MatPaginatorModule
   ],
   declarations: [
     AppComponent,

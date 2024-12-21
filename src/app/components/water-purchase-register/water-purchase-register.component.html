@@ -57,7 +57,7 @@
                 <textarea matInput placeholder="Notes (Optional)" formControlName="notes"></textarea>
             </mat-form-field>
         </div>
-        <button mat-raised-button color="primary" type="submit" class="submit-button">Register</button>
+        <button mat-raised-button color="primary" type="submit" class="submit-button">{{ isEditMode ? 'Update' : 'Register' }}</button>
     </form>
 </div>
 <div mat-dialog-actions>

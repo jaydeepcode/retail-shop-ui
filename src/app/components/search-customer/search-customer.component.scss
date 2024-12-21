@@ -1,16 +1,32 @@
+.search-body {
+    display: grid;
+    justify-content: center;
+}
+
 .search-container {
-    display: table;
+    display: flex;
+    align-items: baseline;
 }
 
 .search-container .form-label {
     margin-right: 10px;
 }
 
+.contact-edit-button {
+    background-color: transparent;
+    border: 0;
+    transition: transform 0.2s
+}
+
+.contact-edit-button:hover {
+    transform: scale(1.05);
+}
+
 .search-input {
     flex: 1;
     max-width: 300px;
     /* Adjust the max-width as needed */
-    margin-right: 10px;
+    margin-right: 20px;
 }
 
 .register-icon-button {
@@ -24,50 +40,98 @@
     background-color: #0056b3;
 }
 
-.table-row:hover {
+/* Hover effect for mat-row */
+.mat-row:hover {
     cursor: pointer;
+    /* Change cursor to pointer */
     background-color: #f1f1f1;
+    /* Light gray for hover effect */
 }
 
-.mat-elevation-z8{
+/* Ensure mat-table has a defined width */
+.mat-elevation-z8 {
     min-width: 20vw;
     max-width: 20vw;
 }
 
-
-/* Customize the table header background and text color */
-.mat-header-row {
-    background-color: #0056b3;
-    /* Dark blue for high contrast */
-    color: white;
-    /* White text for readability */
+.customer-grid {
+    display: flex;
+    flex-wrap: wrap;
+    /* Allow wrapping of cards */
+    justify-content: center;
+    /* Center the cards */
 }
 
-/* Customize the table cell background and text color */
-.mat-row {
-    background-color: #ffffff;
-    /* White background for rows */
-    color: #333;
-    /* Dark text for readability */
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    /* Space between title and button */
+    align-items: center;
+    /* Center vertically */
 }
 
-/* Add hover effect on table rows */
-.mat-row:hover {
-    background-color: #e0e0e0;
-    /* Light gray for hover effect */
+.customer-card {
+    width: calc(20vw - 20px);
+    /* Each card takes up roughly a third of the row minus margins */
+    min-width: 20vw;
+    /* Minimum width for one or two cards */
+    margin: 10px;
+    /* Space between cards */
+    transition: transform 0.2s, box-shadow 0.2s;
+    /* Smooth transition for hover effects */
+
+    .custom-card {
+        background-color: #ffffff;
+        /* Slightly transparent white */
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        /* Subtle shadow for depth */
+    }
 }
 
-/* Customize the table cell padding and borders */
-.mat-cell,
-.mat-header-cell {
-    padding: 16px;
-    /* Adjust padding as needed */
-    border-bottom: 1px solid #ccc;
-    /* Light gray borders */
+/* Hover effect for customer cards */
+.customer-card:hover {
+    transform: scale(1.05);
+    /* Slightly enlarge the card */
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    /* Add shadow for depth */
+    cursor: pointer;
 }
 
-/* Additional styling for alternating row colors */
-.mat-row:nth-child(odd) {
-    background-color: #f9f9f9;
-    /* Very light gray for alternating row color */
+/* Optional: Adjust card styles */
+.mat-card {
+    text-align: center;
+    /* Center text inside card */
+}
+
+/* New CSS for Trip Pending Count and Balance */
+.trip-info {
+    display: flex;
+    justify-content: space-between;
+    padding: 12px;
+    background-color: #f0f0f5;
+    border-radius: 25px;
+    font-size: 1.1em;
+    /* Slightly larger font */
+    font-weight: bold;
+    /* Bold text */
+
+    &.no-record {
+        background-color:transparent;
+    }
+}
+
+.trip-info div {
+    margin: 0 8px;
+    /* Add some spacing between items */
+}
+
+.highlighted-value {
+    font-size: 1.2em;
+    /* Larger font size */
+    color: #007bff;
+    /* Highlight color */
+    font-weight: bold;
+    /* Ensure bold text */
 }

@@ -1,21 +1,69 @@
-<div class="search-container mt-2">
-  <mat-form-field appearance="outline">
-    <mat-label>Search by Name</mat-label>
-    <input matInput list="customerNames" id="customerList" [formControl]="searchTerm" placeholder="Type to search...">
-  </mat-form-field>
-  <button mat-mini-fab color="primary" class="register-icon-button" (click)="openRegistrationForm()">
-    <mat-icon svgIcon="register_customer"></mat-icon>
-  </button>
+<div class="search-body">
+  <div class="search-container mt-2">
+    <mat-form-field appearance="outline">
+      <mat-label>Search by Name</mat-label>
+      <input matInput list="customerNames" id="customerList" [formControl]="searchTerm" placeholder="Type to search...">
+    </mat-form-field>
+
+    <button mat-mini-fab color="primary" class="register-icon-button" (click)="openRegistrationForm()">
+      <mat-icon svgIcon="register_customer"></mat-icon>
+    </button>
+  </div>
+
+  <ng-container *ngIf="filteredCustomers.length > 0">
+    <mat-table [dataSource]="filteredCustomers" style="width: 100%;" class="mat-elevation-z8">
+      <ng-container matColumnDef="customerName">
+        <mat-header-cell *matHeaderCellDef> Customer Name </mat-header-cell>
+        <mat-cell *matCellDef="let customer"> {{customer.customerName}} </mat-cell>
+      </ng-container>
+
+      <ng-container matColumnDef="contactNum">
+        <mat-header-cell *matHeaderCellDef> Contact Number </mat-header-cell>
+        <mat-cell *matCellDef="let customer"> {{customer.contactNum}} </mat-cell>
+      </ng-container>
+      <ng-container matColumnDef="contactEdit">
+        <mat-header-cell *matHeaderCellDef> Edit </mat-header-cell>
+        <mat-cell *matCellDef="let customer">
+          <button class="contact-edit-button" mat-icon-button (click)="editCustomer(customer);$event.stopPropagation();">
+            <mat-icon svgIcon="edit_customer"></mat-icon>
+          </button>
+        </mat-cell>
+      </ng-container>
+
+      <mat-header-row *matHeaderRowDef="displayedColumns"></mat-header-row>
+      <mat-row *matRowDef="let row; columns: displayedColumns;" (click)="onRowClick(row)"></mat-row>
+    </mat-table>
+  </ng-container>
 </div>
-<mat-table [dataSource]="filteredCustomers" style="width: 20%;" class="mat-elevation-z8">
-  <ng-container matColumnDef="customerName">
-    <mat-header-cell *matHeaderCellDef> Customer Name </mat-header-cell>
-    <mat-cell *matCellDef="let customer"> {{customer.customerName}} </mat-cell>
-  </ng-container>
-  <ng-container matColumnDef="contactNum">
-    <mat-header-cell *matHeaderCellDef> Contact Number </mat-header-cell>
-    <mat-cell *matCellDef="let customer"> {{customer.contactNum}} </mat-cell>
-  </ng-container>
-  <mat-header-row *matHeaderRowDef="displayedColumns"></mat-header-row>
-  <mat-row *matRowDef="let row; columns: displayedColumns;" (click)="onRowClick(row)"></mat-row>
-</mat-table>
+
+<div class="customer-grid">
+  <div *ngFor="let customer of topCustomers" class="customer-card" (click)="onRowClick(customer)">
+    <mat-card class="custom-card">
+      <div class="card-header">
+        <mat-card-header>
+          <mat-card-title><strong>{{ customer.customerName }}</strong></mat-card-title>
+        </mat-card-header>
+        <button mat-icon-button [matMenuTriggerFor]="contextMenu" (click)="setSelectedCustomer(customer);$event.stopPropagation();" >
+          <mat-icon svgIcon="more_vert"></mat-icon> 
+        </button>
+      </div>
+      
+      <mat-card-content *ngIf="customer.pendingTrips > 0">
+        <div class="trip-info">
+          <div>Trip Pending : <span class="highlighted-value"> {{ customer.pendingTrips }}</span></div>
+          <div>Balance: <span class="highlighted-value"> {{customer.balanceAmount}} </span></div>
+        </div>
+      </mat-card-content>
+      <mat-card-content *ngIf="customer.pendingTrips ==  0">
+        <div class="trip-info no-record">
+           &nbsp;
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+  <!-- Context Menu -->
+  <mat-menu #contextMenu="matMenu">
+    <button mat-menu-item (click)="editMenuCustomer()">Edit Customer <mat-icon svgIcon="edit_customer"></mat-icon></button>
+    <!-- <button mat-menu-item (click)="deleteCustomer(selectedCustomer)">Delete Customer</button> -->
+  </mat-menu>
+</div>

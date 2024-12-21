@@ -1,19 +1,21 @@
 export interface CustomerProfile {
-    custId: number;
-    customerName: string;
-    contactNum: string;
-  }
-  
+  custId: number;
+  customerName: string;
+  contactNum: string;
+  pendingTrips: number;
+  balanceAmount: number;
+}
+
 export interface WaterPurchaseTransactionDTO {
-  waterPurchaseParty:WaterPurchasePartyDTO;
-  rcCreditReqList:RcCreditReqDTO[];
-  customerName:string;
-  balanceAmount:number;
+  waterPurchaseParty: WaterPurchasePartyDTO;
+  rcCreditReqList: RcCreditReqDTO[];
+  customerName: string;
+  balanceAmount: number;
 }
 
 export interface CustomerPayment {
-  paymentAmount:number,
-  paymentMethod:string
+  paymentAmount: number,
+  paymentMethod: string
 }
 
 // water-purchase-party.dto.ts

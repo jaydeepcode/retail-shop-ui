@@ -20,7 +20,7 @@ export class PaymentModalComponent {
   readonly data = inject(MAT_DIALOG_DATA);
 
   payFormGroup: FormGroup = this.fb.group({
-    paymentAmount: [this.data.paymentAmount, Validators.required],
+    paymentAmount: [this.data.paymentAmount, [Validators.required, Validators.min(1)]],
     paymentMode: ['', Validators.required],
   });
 

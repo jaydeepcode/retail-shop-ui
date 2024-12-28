@@ -50,8 +50,8 @@
       
       <mat-card-content *ngIf="customer.pendingTrips > 0">
         <div class="trip-info">
-          <div>Trip Pending : <span class="highlighted-value"> {{ customer.pendingTrips }}</span></div>
-          <div>Balance: <span class="highlighted-value"> {{customer.balanceAmount}} </span></div>
+          <div *ngIf="customer.balanceAmount > 0">Trip Pending : <span class="highlighted-value"> {{ customer.pendingTrips }}</span></div>
+          <div>Balance: <span class="highlighted-value" [ngClass]="{'negative-contrast' : customer.balanceAmount < 0}"> {{customer.balanceAmount}} </span></div>
         </div>
       </mat-card-content>
       <mat-card-content *ngIf="customer.pendingTrips ==  0">

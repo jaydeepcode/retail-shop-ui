@@ -39,7 +39,7 @@ export class WaterPurchaseRegisterComponent {
 
   getRegistrationForm(customerProfile: CustomerProfile|undefined, waterPurchaseParty: WaterPurchasePartyDTO|undefined): FormGroup<any> {
     return this.fb.group({
-      customerId: [customerProfile ? customerProfile.custId : '', [Validators.required]],
+      customerId: [customerProfile ? customerProfile.custId : ''],
       customerName: [customerProfile ? customerProfile.customerName : '', [Validators.required, Validators.minLength(3), Validators.pattern('^[a-zA-Z\\s\\-]+$')]],
       contactNum: [customerProfile ? customerProfile.contactNum : '', [Validators.required, Validators.pattern('^[0-9]{10}$')]], // Validates a 10-digit phone number 
       storageType: [waterPurchaseParty ? waterPurchaseParty.storageType : '', Validators.required],

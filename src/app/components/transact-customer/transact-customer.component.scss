@@ -119,6 +119,10 @@
     font-size: 1rem;
     position: relative;
     cursor: pointer;
+
+    &.negative-contrast {
+        background-color: #4CAF50;
+    }
 }
 
 .circle-badge span {

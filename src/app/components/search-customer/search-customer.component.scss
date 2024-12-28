@@ -134,4 +134,8 @@
     /* Highlight color */
     font-weight: bold;
     /* Ensure bold text */
+
+    &.negative-contrast {
+        color: #28a745;
+    }
 }

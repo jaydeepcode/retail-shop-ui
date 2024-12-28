@@ -25,6 +25,7 @@ export class TransactCustomerComponent implements OnInit, AfterViewInit {
   displayedColumns: string[] = ['tripDateTime', 'creditAmount', 'depositAmount', 'balanceAmount'];
   public dataSource = new MatTableDataSource<RcCreditReqDTO>([]);
   totalPendingAmount: number = 0;
+  pendingTrip:number = 0;
 
   @ViewChild(MatPaginator) paginator!: MatPaginator;
 
@@ -45,6 +46,7 @@ export class TransactCustomerComponent implements OnInit, AfterViewInit {
     this.waterPurchaseTransaction = this.activatedRoute.snapshot.data['customerData'];
     if (this.waterPurchaseTransaction) {
       this.totalPendingAmount = this.waterPurchaseTransaction.balanceAmount;
+      this.calculatePendingTrip();
       this.purchaseParty = this.waterPurchaseTransaction.waterPurchaseParty;
       this.customerName = this.waterPurchaseTransaction.customerName;
     }
@@ -56,6 +58,17 @@ export class TransactCustomerComponent implements OnInit, AfterViewInit {
       }
     });
   }
+
+  calculatePendingTrip() {
+    let capacity = this.waterPurchaseTransaction?.waterPurchaseParty?.capacity ;
+    if(capacity){
+      let perUnitPrice = Math.floor(capacity / 500) * 30;
+      this.pendingTrip = this.totalPendingAmount / perUnitPrice;
+    }else {
+      this.pendingTrip = 0;
+    }
+  }
+
   fetchAllTransactions(page: number, size: number) {
     this.setLoadingState(true);
     this.waterService.getAllTransactions(this.purchaseParty!.customerId, page, size).subscribe({
@@ -83,6 +96,7 @@ export class TransactCustomerComponent implements OnInit, AfterViewInit {
         if (this.waterPurchaseTransaction) {
           this.waterPurchaseTransaction.rcCreditReqList = waterPurchaseTransactionDTO.rcCreditReqList;
           this.totalPendingAmount = waterPurchaseTransactionDTO.balanceAmount;
+          this.calculatePendingTrip()
         }
         this.isRecording = false;
       }),
@@ -104,6 +118,7 @@ export class TransactCustomerComponent implements OnInit, AfterViewInit {
           if (this.waterPurchaseTransaction) {
             this.waterPurchaseTransaction.rcCreditReqList = waterPurchaseTransactionDTO.rcCreditReqList;
             this.totalPendingAmount = waterPurchaseTransactionDTO.balanceAmount;
+            this.calculatePendingTrip()
           }
           this.isRecording = false;
           this.alertService.triggerAlert(AlertType.Success, "Payment processed successfully !")

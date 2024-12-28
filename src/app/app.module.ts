@@ -8,7 +8,9 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule, MatIconRegistry } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatMenuModule } from '@angular/material/menu';
+import { MatPaginatorModule } from '@angular/material/paginator';
 import { MatSelectModule } from '@angular/material/select';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatTableModule } from '@angular/material/table';
 import { BrowserModule, DomSanitizer } from '@angular/platform-browser';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
@@ -22,9 +24,7 @@ import { PaymentModalComponent } from './components/payment-modal/payment-modal.
 import { SearchCustomerComponent } from './components/search-customer/search-customer.component';
 import { TransactCustomerComponent } from './components/transact-customer/transact-customer.component';
 import { WaterPurchaseRegisterComponent } from './components/water-purchase-register/water-purchase-register.component';
-import { MatSlideToggleModule } from '@angular/material/slide-toggle';
-import { MatPaginatedTabHeader } from '@angular/material/tabs';
-import { MatPaginatorModule } from '@angular/material/paginator';
+import { AbsoluteValuePipe } from './pipe/AbsoluteValuePipe';
 
 @NgModule({
   imports: [
@@ -54,7 +54,8 @@ import { MatPaginatorModule } from '@angular/material/paginator';
     GlobalAlertComponent,
     PaymentModalComponent,
     WaterPurchaseRegisterComponent,
-    AddTripConfirmationDialogComponent
+    AddTripConfirmationDialogComponent,
+    AbsoluteValuePipe
   ],
   providers: [],
   bootstrap: [AppComponent]

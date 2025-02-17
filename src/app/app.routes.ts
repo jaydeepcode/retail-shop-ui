@@ -4,12 +4,16 @@ import { NgModule } from '@angular/core';
 import { HomeComponent } from './components/home/home.component';
 import { TransactCustomerComponent } from './components/transact-customer/transact-customer.component';
 import { CustomerResolver } from './resolvers/CustomerResolver';
+import { LoginComponent } from './components/login/login.component';
+import { AuthGuard } from './services/auth.gaurd';
 
 export const routes: Routes = [
-    {path: '' , redirectTo : 'home', pathMatch: 'full'},
-    {path: 'home', component: HomeComponent},
-    {path: 'transact-customer/:id' , component: TransactCustomerComponent, resolve : {customerData : CustomerResolver}},
-    {path: 'search-customer' , component: SearchCustomerComponent}
+    {path: 'login' , component: LoginComponent},
+    {path: 'home', component: HomeComponent, canActivate: [AuthGuard]},
+    {path: 'transact-customer/:id' , component: TransactCustomerComponent, resolve : {customerData : CustomerResolver}, canActivate: [AuthGuard]},
+    {path: 'search-customer' , component: SearchCustomerComponent, canActivate: [AuthGuard]},
+    {path: '' , redirectTo : '/login', pathMatch: 'full'},
+    {path: '**' , redirectTo : '/login'}
 ];
 
 @NgModule({

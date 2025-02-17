@@ -25,6 +25,7 @@ import { SearchCustomerComponent } from './components/search-customer/search-cus
 import { TransactCustomerComponent } from './components/transact-customer/transact-customer.component';
 import { WaterPurchaseRegisterComponent } from './components/water-purchase-register/water-purchase-register.component';
 import { AbsoluteValuePipe } from './pipe/AbsoluteValuePipe';
+import { LoginComponent } from './components/login/login.component';
 
 @NgModule({
   imports: [
@@ -48,6 +49,7 @@ import { AbsoluteValuePipe } from './pipe/AbsoluteValuePipe';
   ],
   declarations: [
     AppComponent,
+    LoginComponent,
     SearchCustomerComponent,
     HomeComponent,
     TransactCustomerComponent,

@@ -62,7 +62,7 @@ export class TransactCustomerComponent implements OnInit, AfterViewInit {
   calculatePendingTrip() {
     let capacity = this.waterPurchaseTransaction?.waterPurchaseParty?.capacity ;
     if(capacity){
-      let perUnitPrice = Math.floor(capacity / 500) * 30;
+      let perUnitPrice = Math.floor(capacity / 500) * 40;
       this.pendingTrip = this.totalPendingAmount / perUnitPrice;
     }else {
       this.pendingTrip = 0;

@@ -1,0 +1,36 @@
+.login-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background-color: #e0e0e0;
+  background-image: url('../../../assets/images/login_bkg.png'); /* Use your lighter background image */
+  background-size: cover;
+  background-position: center;
+  text-align: center;
+  background-attachment: fixed;
+}
+
+h1 {
+  margin-bottom: 20px;
+  color: #FFD700;
+  font-size: xx-large;
+}
+
+.login-card {
+  width: 400px;
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.login-actions {
+  display: grid;
+  grid-template-columns: 1fr auto; /* Adjust the fraction as needed */
+  gap: 16px; /* Space between the button and the toggle */
+  align-items: center; /* Center align the items vertically */
+}
+
+.error-message{
+  color: red;
+  font-size: small;
+}

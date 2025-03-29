@@ -22,7 +22,7 @@ export class TransactCustomerComponent implements OnInit, AfterViewInit {
   customerName: string | undefined;
   isRecording: boolean = false;
   histGroupForm: FormGroup;
-  displayedColumns: string[] = ['tripDateTime', 'creditAmount', 'depositAmount', 'balanceAmount'];
+  displayedColumns: string[] = ['tripDateTime', 'creditAmount', 'depositAmount', 'balanceAmount', 'credBy'];
   public dataSource = new MatTableDataSource<RcCreditReqDTO>([]);
   totalPendingAmount: number = 0;
   pendingTrip:number = 0;

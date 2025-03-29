@@ -1,9 +1,29 @@
 <div class="bus-type my-2 mx-2">
+    <!-- Header Section -->
     <div class="bus-type-header">
-        <h1> Welcome to Jaydeep Traders </h1>
+        <!-- Welcome Message -->
+        <h1>Welcome to Jaydeep Traders</h1>
+
+        <!-- User Details and Logout Button -->
+        <div class="user-details">
+            <div *ngIf="userDetails" class="user-info">
+                <span class="user-name">{{ userDetails.firstName }} {{ userDetails.lastName }}</span>
+                <button class="logout-button" (click)="logout()">Logout</button>
+            </div>
+        </div>
     </div>
+
+    <!-- Image Grid Section -->
     <div class="bus-type-water">
-        <img src="assets/images/mini-water-tanker.png" routerLink="/search-customer"
-            alt="Mini Water Tanker Being Filled">
+        <div class="image-grid">
+            <div class="image-container">
+                <img src="assets/images/mini-water-tanker.png" routerLink="/search-customer"
+                    alt="Mini Water Tanker Being Filled">
+                <div class="image-overlay">
+                    <p>Manage Water Sales</p>
+                </div>
+            </div>
+            <!-- Add more images here as functionalities increase -->
+        </div>
     </div>
 </div>

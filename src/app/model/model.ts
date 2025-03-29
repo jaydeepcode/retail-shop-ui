@@ -34,6 +34,7 @@ export interface RcCreditReqDTO {
   creditAmount: number;
   depositAmount: number;
   balanceAmount: number;
+  credBy: string;
 }
 
 export interface Page<T> {

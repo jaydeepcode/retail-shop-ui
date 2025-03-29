@@ -3,7 +3,8 @@
         <div class="card-header d-flex justify-content-between align-items-center">
             <h4>Water Purchase Party : {{customerName}}</h4>
             <div class="badge-container" *ngIf="pendingTrip !== 0">
-                <div class="circle-badge" [ngClass]="{'negative-contrast': pendingTrip < 0}" > <span>{{ pendingTrip | absoluteValue }}</span> </div>
+                <div class="circle-badge" [ngClass]="{'negative-contrast': pendingTrip < 0}"> <span>{{ pendingTrip |
+                        absoluteValue }}</span> </div>
             </div>
             <div class="d-flex" *ngIf="!histGroupForm.get('historyMode')?.value">
                 <button class="btn btn-primary mx-3" [disabled]="isRecording" (click)="performAction()"> <i
@@ -37,24 +38,28 @@
                     <h4>Current Transaction History</h4>
                 </div>
                 <div class="card-body">
-                    <table class="table table-striped table-bordered">
-                        <thead class="thead-dark">
-                            <tr>
-                                <th>Date</th>
-                                <th>Credit Amount</th>
-                                <th>Deposit Amount</th>
-                                <th>Balance</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr *ngFor="let transaction of waterPurchaseTransaction?.rcCreditReqList">
-                                <td>{{ transaction.tripDateTime | date:'medium' }}</td>
-                                <td>{{ transaction.creditAmount }}</td>
-                                <td>{{ transaction.depositAmount }}</td>
-                                <td>{{ transaction.balanceAmount }}</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                    <div class="table-container">
+                        <table class="table table-striped table-bordered">
+                            <thead class="thead-dark">
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Credit Amount</th>
+                                    <th>Deposit Amount</th>
+                                    <th>Balance</th>
+                                    <th>User</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr *ngFor="let transaction of waterPurchaseTransaction?.rcCreditReqList">
+                                    <td>{{ transaction.tripDateTime | date:'medium' }}</td>
+                                    <td>{{ transaction.creditAmount }}</td>
+                                    <td>{{ transaction.depositAmount }}</td>
+                                    <td>{{ transaction.balanceAmount }}</td>
+                                    <td>{{ transaction.credBy }} </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
@@ -81,6 +86,10 @@
                     <ng-container matColumnDef="balanceAmount">
                         <th mat-header-cell *matHeaderCellDef> Balance </th>
                         <td mat-cell *matCellDef="let element"> {{element.balanceAmount}} </td>
+                    </ng-container>
+                    <ng-container matColumnDef="credBy">
+                        <th mat-header-cell *matHeaderCellDef> User </th>
+                        <td mat-cell *matCellDef="let element"> {{element.credBy}} </td>
                     </ng-container>
                     <tr mat-header-row *matHeaderRowDef="displayedColumns" class="sticky-header"></tr>
                     <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>

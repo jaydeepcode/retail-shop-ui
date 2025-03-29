@@ -1,4 +1,4 @@
-import { HttpClientModule } from '@angular/common/http';
+import { HTTP_INTERCEPTORS, HttpClientModule } from '@angular/common/http';
 import { NgModule } from '@angular/core';
 import { ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -26,6 +26,7 @@ import { TransactCustomerComponent } from './components/transact-customer/transa
 import { WaterPurchaseRegisterComponent } from './components/water-purchase-register/water-purchase-register.component';
 import { AbsoluteValuePipe } from './pipe/AbsoluteValuePipe';
 import { LoginComponent } from './components/login/login.component';
+import { AuthInterceptor } from './interceptor/AuthInterceptor';
 
 @NgModule({
   imports: [
@@ -59,7 +60,9 @@ import { LoginComponent } from './components/login/login.component';
     AddTripConfirmationDialogComponent,
     AbsoluteValuePipe
   ],
-  providers: [],
+  providers: [
+    { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true }
+  ],
   bootstrap: [AppComponent]
 })
 export class AppModule {

@@ -65,7 +65,9 @@ export class LoginComponent implements OnInit {
     } else {
       this.authService.login(this.loginForm.value).subscribe(
         (response) => {
-          localStorage.setItem('token', response.jwt);
+          this.authService.setIsLoggedIn(true);
+          localStorage.setItem('accessToken', response.accessToken);
+          localStorage.setItem('refreshToken', response.refreshToken);
           this.router.navigate(['home']);
         },
         (error) => {

@@ -129,3 +129,35 @@
     font-size: 1.4rem;
     /* Adjust text size */
 }
+
+.table-container {
+    max-height: 16.5rem; /* Adjust based on your needs */
+    overflow-y: auto;
+  }
+  
+  /* Sticky table header */
+  table thead th {
+    position: sticky;
+    top: 0;
+    background: #325272f2; /* Match thead-dark color */
+    color: white;
+    z-index: 1;
+  }
+  
+  /* Optional: Improve scrollbar appearance */
+  .table-container::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  .table-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
+  }
+  
+  .table-container::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+  }
+  
+  .table-container::-webkit-scrollbar-thumb:hover {
+    background: #555;
+  }

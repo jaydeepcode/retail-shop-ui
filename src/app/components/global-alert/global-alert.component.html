@@ -1,1 +1,4 @@
-<div *ngIf="alert" [class]="alertClass" class="alert fixed-top"> {{ alert.message }} </div>
+<div *ngIf="alert" [class]="alertClass" class="alert fixed-top"> {{ alert.message }} 
+     <!-- Show "OK" button ONLY for Error alerts -->
+     <button *ngIf="alert.type === AlertType.Error || alert.type === AlertType.AutoLogout" (click)="onDismiss()">OK</button>
+</div>

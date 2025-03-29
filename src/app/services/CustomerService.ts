@@ -8,21 +8,20 @@ import { ApiService } from './api.service';
   providedIn: 'root'
 })
 export class CustomerService {
-  private apiUrl = environment.apiUrl;
 
   constructor(private apiService: ApiService) { }
 
   searchCustomers(customerName: string): Observable<CustomerProfile[]> {
     const params = { customerName: customerName};
-    return this.apiService.getData<CustomerProfile[]>(`${this.apiUrl}/customers/search`, params);
+    return this.apiService.getData<CustomerProfile[]>(`/customers/search`, params);
   }
 
   getTransactions(customerId: number): Observable<any> {
     const params = { customerId: customerId };
-    return this.apiService.getData<any>(`${this.apiUrl}/party/transactions`, params);
+    return this.apiService.getData<any>(`/party/transactions`, params);
   }
 
   getRecentCustomers(): Observable<CustomerProfile[]> {
-    return this.apiService.getData<CustomerProfile[]>(`${this.apiUrl}/party/recent-customers`);
+    return this.apiService.getData<CustomerProfile[]>(`/party/recent-customers`);
   }
 }

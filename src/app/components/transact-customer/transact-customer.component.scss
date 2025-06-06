@@ -161,3 +161,12 @@
   .table-container::-webkit-scrollbar-thumb:hover {
     background: #555;
   }
+
+.btn-success {
+  min-width: 120px;
+}
+
+.btn-success:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}

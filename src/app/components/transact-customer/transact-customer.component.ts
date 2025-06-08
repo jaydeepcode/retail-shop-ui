@@ -9,8 +9,10 @@ import { WaterService } from '../../services/WaterService';
 import { AlertService, AlertType } from '../../services/alert.service';
 import { AddTripConfirmationDialogComponent } from '../add-trip-confirmation-dialog/add-trip-confirmation-dialog.component';
 import { PaymentModalComponent } from '../payment-modal/payment-modal.component';
+import { PumpControlDialogComponent } from '../pump-control-dialog/pump-control-dialog.component';
 import { MotorControlService } from '../../services/MotorControlService';
-import { catchError, interval, Subject, Subscription, takeUntil } from 'rxjs';
+import { catchError, firstValueFrom, interval, Subject, Subscription, takeUntil } from 'rxjs';
+import { PumpStatus, PumpSelectionResult, MotorStatusResponse } from '../../model/motor.types';
 
 @Component({
   selector: 'app-transact-customer',
@@ -18,7 +20,6 @@ import { catchError, interval, Subject, Subscription, takeUntil } from 'rxjs';
   styleUrl: './transact-customer.component.scss'
 })
 export class TransactCustomerComponent implements OnInit, AfterViewInit, OnDestroy {
-
   public waterPurchaseTransaction: WaterPurchaseTransactionDTO | undefined;
   purchaseParty: WaterPurchasePartyDTO | undefined;
   customerName: string | undefined;
@@ -29,7 +30,10 @@ export class TransactCustomerComponent implements OnInit, AfterViewInit, OnDestr
   totalPendingAmount: number = 0;
   pendingTrip: number = 0;
 
-  motorRunning = false;
+  // Motor control properties
+  insideMotorRunning = false;
+  outsideMotorRunning = false;
+  waterLevel: string = 'LOW';
   isMotorActionPending = false;
 
   private statusSubscription: Subscription | undefined;
@@ -38,11 +42,14 @@ export class TransactCustomerComponent implements OnInit, AfterViewInit, OnDestr
   @ViewChild(MatPaginator) paginator!: MatPaginator;
   private ngUnsubscribe$ = new Subject<void>();
 
-  constructor(private waterService: WaterService, private alertService: AlertService,
+  constructor(
+    private waterService: WaterService,
+    private alertService: AlertService,
     private fb: FormBuilder,
     private dialog: MatDialog,
     private activatedRoute: ActivatedRoute,
-    private motorControlService: MotorControlService) {
+    private motorControlService: MotorControlService
+  ) {
     this.histGroupForm = this.fb.group({
       historyMode: [false]
     });
@@ -99,45 +106,95 @@ export class TransactCustomerComponent implements OnInit, AfterViewInit, OnDestr
     // Initial check
     this.checkMotorStatus();
   }
+
+  private updatePumpStatus(status: MotorStatusResponse): void {
+    this.insideMotorRunning = status.pump_inside.status === 'ON';
+    this.outsideMotorRunning = status.pump_outside.status === 'ON';
+    this.waterLevel = status.water_level;
+  }
+
   checkMotorStatus() {
     this.motorControlService.getMotorStatus()
-      .pipe(
-        catchError(error => {
-          console.error('Error fetching motor status:', error);
-          this.motorRunning = false;
-          throw error;
-        })
-      )
       .subscribe({
         next: (response) => {
-          const newStatus = response.status === 'ON';
-          if (this.motorRunning !== newStatus) {
-            this.motorRunning = newStatus;
-            // Optionally notify users about status change
-            this.alertService.triggerAlert(
-              AlertType.Info, 
-              `Motor status changed to ${newStatus ? 'running' : 'stopped'}`
-            );
-          }
+          this.updatePumpStatus(response);
+        },
+        error: (error) => {
+          console.error('Error fetching motor status:', error);
+          this.insideMotorRunning = false;
+          this.outsideMotorRunning = false;
+          this.alertService.triggerAlert(AlertType.Error, 'Failed to fetch pump status');
         }
       });
   }
 
-  toggleMotor() {
+  async handlePumpControl(result: PumpSelectionResult) {
     this.isMotorActionPending = true;
-    const newStatus = this.motorRunning ? 'stop' : 'start';;
+    try {
+      // Handle inside pump first if it needs to be started
+      const currentInsideStatus = this.insideMotorRunning ? 'ON' : 'OFF';
+      if (result.inside !== currentInsideStatus) {
+        const action = result.inside === 'ON' ? 'start' : 'stop';
+        await firstValueFrom(this.motorControlService.toggleMotorStatus(action, 'inside'));
 
-    this.motorControlService.toggleMotorStatus(newStatus).subscribe({
-      next: (response) => {
-        this.motorRunning = response.status == 'ON';
-        this.isMotorActionPending = false;
-        this.alertService.triggerAlert(AlertType.Success, `Motor ${this.motorRunning ? 'started' : 'stopped'} successfully!`);
-      },
-      error: (error) => {
-        this.motorRunning = false;
-        console.error('Error toggling motor:', error);
-        this.isMotorActionPending = false;
-        this.alertService.triggerAlert(AlertType.Error, `Occured error while starting/stopping motor !`);
+        const status = await firstValueFrom(this.motorControlService.getMotorStatus());
+        this.updatePumpStatus(status);
+
+        // If starting both pumps, wait 5 seconds before starting the second one
+        if (action === 'start' && result.outside === 'ON' && !this.outsideMotorRunning) {
+          this.alertService.triggerAlert(
+            AlertType.Info,
+            'Waiting 5 seconds before starting second pump...'
+          );
+          await new Promise(resolve => setTimeout(resolve, 5000));
+        }
+      }
+
+      // Handle outside pump
+      if (result.outside !== (this.outsideMotorRunning ? 'ON' : 'OFF')) {
+        const action = result.outside === 'ON' ? 'start' : 'stop';
+        // Toggle the pump state
+        await firstValueFrom(this.motorControlService.toggleMotorStatus(action, 'outside'));
+        // Get latest status after toggle
+        const status = await firstValueFrom(this.motorControlService.getMotorStatus());
+        this.updatePumpStatus(status);
+      }
+
+      this.isMotorActionPending = false;
+      this.alertService.triggerAlert(
+        AlertType.Success,
+        'Pump status updated successfully!'
+      );
+    } catch (error) {
+      console.error('Error updating pump status:', error);
+      this.isMotorActionPending = false;
+      this.alertService.triggerAlert(
+        AlertType.Error,
+        'Error updating pump status'
+      );
+      // Get latest status in case of error to ensure UI is in sync
+      try {
+        const status = await firstValueFrom(this.motorControlService.getMotorStatus());
+        this.updatePumpStatus(status);
+      } catch (statusError) {
+        console.error('Failed to get status after error:', statusError);
+      }
+    }
+  }
+
+  openPumpControlDialog() {
+    const dialogRef = this.dialog.open(PumpControlDialogComponent, {
+      width: '600px',
+      data: {
+        insideStatus: this.insideMotorRunning ? 'ON' : 'OFF',
+        outsideStatus: this.outsideMotorRunning ? 'ON' : 'OFF',
+        waterLevel: this.waterLevel
+      }
+    });
+
+    dialogRef.afterClosed().subscribe((result: PumpSelectionResult) => {
+      if (result) {
+        this.handlePumpControl(result);
       }
     });
   }

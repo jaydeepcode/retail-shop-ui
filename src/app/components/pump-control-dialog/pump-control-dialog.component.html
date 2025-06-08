@@ -1,0 +1,61 @@
+<div class="pump-control-dialog">
+  <h2 mat-dialog-title>Water Pump Controls</h2>
+
+  <mat-dialog-content>
+    <div class="pumps-container">
+      <!-- Inside Pump -->
+      <div class="pump-control">
+        <button class="pump-button" 
+                [class.running]="isPumpRunning('inside')"
+                [class.selected]="selectedPumps.inside"
+                [class.stop-selected]="selectedPumps.inside && isPumpRunning('inside')"
+                [class.start-selected]="selectedPumps.inside && !isPumpRunning('inside')"
+                [disabled]="!canTogglePump('inside')"
+                (click)="togglePump('inside')">
+          <div class="pump-icon">
+            <mat-icon>home</mat-icon>
+            <mat-icon class="secondary-icon">water_drop</mat-icon>
+          </div>
+          <div class="pump-status">
+            <span class="pump-name">Inside Pump</span>
+            <span class="status-badge" [class.running]="isPumpRunning('inside')">
+              {{isPumpRunning('inside') ? 'Running' : 'Stopped'}}
+            </span>
+          </div>
+        </button>
+      </div>
+
+      <!-- Outside Pump -->
+      <div class="pump-control">
+        <button class="pump-button"
+                [class.running]="isPumpRunning('outside')"
+                [class.selected]="selectedPumps.outside"
+                [class.stop-selected]="selectedPumps.outside && isPumpRunning('outside')"
+                [class.start-selected]="selectedPumps.outside && !isPumpRunning('outside')"
+                [disabled]="!canTogglePump('outside')"
+                (click)="togglePump('outside')">
+          <div class="pump-icon">
+            <mat-icon>landscape</mat-icon>
+            <mat-icon class="secondary-icon">water_drop</mat-icon>
+          </div>
+          <div class="pump-status">
+            <span class="pump-name">Outside Pump</span>
+            <span class="status-badge" [class.running]="isPumpRunning('outside')">
+              {{isPumpRunning('outside') ? 'Running' : 'Stopped'}}
+            </span>
+          </div>
+        </button>
+      </div>
+    </div>
+  </mat-dialog-content>
+
+  <mat-dialog-actions align="end">
+    <button mat-button (click)="onCancel()">Cancel</button>
+    <button mat-raised-button 
+            *ngIf="anyPumpSelected()"
+            [color]="getActionText() === 'Stop' ? 'warn' : 'primary'"
+            (click)="onConfirm()">
+      {{getActionText()}} Selected Pump(s)
+    </button>
+  </mat-dialog-actions>
+</div>

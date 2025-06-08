@@ -3,6 +3,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
+import { MotorStatusResponse } from '../model/motor.types';
 
 @Injectable({
   providedIn: 'root'
@@ -12,11 +13,13 @@ export class MotorControlService {
 
   constructor(private http: HttpClient) { }
 
-  toggleMotorStatus(action: string): Observable<any> {
-    return this.http.post(`${this.baseUrl}/motor/pump`, { action: action });
+  toggleMotorStatus(action: 'start' | 'stop', pump: 'inside' | 'outside'): Observable<MotorStatusResponse> {
+    const url = `${this.baseUrl}/api/motor/pump/${pump}/${action}`;
+    return this.http.post<MotorStatusResponse>(url, {});
   }
 
-  getMotorStatus(): Observable<any> {
-    return this.http.get(`${this.baseUrl}/motor/status`);
+  getMotorStatus(): Observable<MotorStatusResponse> {
+    const url = `${this.baseUrl}/api/motor/status`;
+    return this.http.get<MotorStatusResponse>(url);
   }
 }

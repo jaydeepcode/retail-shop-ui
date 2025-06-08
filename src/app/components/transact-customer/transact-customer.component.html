@@ -6,14 +6,11 @@
                 <div class="circle-badge" [ngClass]="{'negative-contrast': pendingTrip < 0}"> <span>{{ pendingTrip |
                         absoluteValue }}</span> </div>
             </div>
-            <div class="d-flex" *ngIf="!histGroupForm.get('historyMode')?.value">
-                <button class="btn mx-3" 
-                        [class.btn-success]="!motorRunning"
-                        [class.btn-danger]="motorRunning"
+            <div class="d-flex" *ngIf="!histGroupForm.get('historyMode')?.value">                <button class="btn btn-primary mx-3" 
                         [disabled]="isMotorActionPending"
-                        (click)="toggleMotor()">
-                    <i class="fa" [class.fa-play]="!motorRunning" [class.fa-stop]="motorRunning"></i>
-                    {{ motorRunning ? 'Stop Motor' : 'Start Motor' }}
+                        (click)="openPumpControlDialog()">
+                    <i class="fa fa-tint"></i>
+                    Control Pumps
                 </button>
                 <button class="btn btn-primary mx-3" [disabled]="isRecording" (click)="performAction()"> <i
                         class="fa fa-save"></i> {{isRecording ?

@@ -21,6 +21,7 @@ import { AddTripConfirmationDialogComponent } from './components/add-trip-confir
 import { GlobalAlertComponent } from './components/global-alert/global-alert.component';
 import { HomeComponent } from './components/home/home.component';
 import { PaymentModalComponent } from './components/payment-modal/payment-modal.component';
+import { PumpControlDialogComponent } from './components/pump-control-dialog/pump-control-dialog.component';
 import { SearchCustomerComponent } from './components/search-customer/search-customer.component';
 import { TransactCustomerComponent } from './components/transact-customer/transact-customer.component';
 import { WaterPurchaseRegisterComponent } from './components/water-purchase-register/water-purchase-register.component';
@@ -58,6 +59,7 @@ import { AuthInterceptor } from './interceptor/AuthInterceptor';
     PaymentModalComponent,
     WaterPurchaseRegisterComponent,
     AddTripConfirmationDialogComponent,
+    PumpControlDialogComponent,
     AbsoluteValuePipe
   ],
   providers: [

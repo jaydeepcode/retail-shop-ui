@@ -4,20 +4,21 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatPaginator, PageEvent } from '@angular/material/paginator';
 import { MatTableDataSource } from '@angular/material/table';
 import { ActivatedRoute } from '@angular/router';
-import { CustomerPayment, RcCreditReqDTO, WaterPurchasePartyDTO, WaterPurchaseTransactionDTO } from '../../model/model';
+import { catchError, firstValueFrom, interval, Subject, Subscription, takeUntil } from 'rxjs';
+import { ActiveTripStatus, CustomerPayment, RcCreditReqDTO, WaterPurchasePartyDTO, WaterPurchaseTransactionDTO } from '../../model/model';
+import { MotorStatusResponse, PumpSelectionResult } from '../../model/motor.types';
+import { MotorControlService } from '../../services/MotorControlService';
 import { WaterService } from '../../services/WaterService';
 import { AlertService, AlertType } from '../../services/alert.service';
+import { TripStateService } from '../../services/trip-state.service';
 import { AddTripConfirmationDialogComponent } from '../add-trip-confirmation-dialog/add-trip-confirmation-dialog.component';
 import { PaymentModalComponent } from '../payment-modal/payment-modal.component';
 import { PumpControlDialogComponent } from '../pump-control-dialog/pump-control-dialog.component';
-import { MotorControlService } from '../../services/MotorControlService';
-import { catchError, firstValueFrom, interval, Subject, Subscription, takeUntil } from 'rxjs';
-import { PumpStatus, PumpSelectionResult, MotorStatusResponse } from '../../model/motor.types';
 
 @Component({
   selector: 'app-transact-customer',
   templateUrl: './transact-customer.component.html',
-  styleUrl: './transact-customer.component.scss'
+  styleUrls: ['./transact-customer.component.scss']
 })
 export class TransactCustomerComponent implements OnInit, AfterViewInit, OnDestroy {
   public waterPurchaseTransaction: WaterPurchaseTransactionDTO | undefined;
@@ -25,9 +26,9 @@ export class TransactCustomerComponent implements OnInit, AfterViewInit, OnDestr
   customerName: string | undefined;
   isRecording: boolean = false;
   histGroupForm: FormGroup;
-  displayedColumns: string[] = ['tripDateTime', 'creditAmount', 'depositAmount', 'balanceAmount', 'credBy'];
-  public dataSource = new MatTableDataSource<RcCreditReqDTO>([]);
-  totalPendingAmount: number = 0;
+  displayedColumns: string[] = ['tripDateTime', 'creditAmount', 'depositAmount', 'balanceAmount', 'status', 'pumpUsed', 'duration', 'credBy'];
+  historyColumns: string[] = ['tripDateTime', 'creditAmount', 'depositAmount', 'balanceAmount', 'pumpUsed', 'duration','credBy'];
+  public dataSource = new MatTableDataSource<RcCreditReqDTO>([]); totalPendingAmount: number = 0;
   pendingTrip: number = 0;
 
   // Motor control properties
@@ -35,20 +36,21 @@ export class TransactCustomerComponent implements OnInit, AfterViewInit, OnDestr
   outsideMotorRunning = false;
   waterLevel: string = 'LOW';
   isMotorActionPending = false;
+  isMotorStatusAvailable = false;  // New property to track ESP server availability
 
   private statusSubscription: Subscription | undefined;
   private pollingInterval = 5000; // 5 seconds
 
   @ViewChild(MatPaginator) paginator!: MatPaginator;
   private ngUnsubscribe$ = new Subject<void>();
-
   constructor(
     private waterService: WaterService,
     private alertService: AlertService,
     private fb: FormBuilder,
     private dialog: MatDialog,
     private activatedRoute: ActivatedRoute,
-    private motorControlService: MotorControlService
+    private motorControlService: MotorControlService,
+    private tripStateService: TripStateService
   ) {
     this.histGroupForm = this.fb.group({
       historyMode: [false]
@@ -58,23 +60,73 @@ export class TransactCustomerComponent implements OnInit, AfterViewInit, OnDestr
   ngAfterViewInit(): void {
     this.dataSource.paginator = this.paginator;
   }
-
-  ngOnInit(): void {
-    this.waterPurchaseTransaction = this.activatedRoute.snapshot.data['customerData'];
+  private initializeCustomerData(): void {
     if (this.waterPurchaseTransaction) {
       this.totalPendingAmount = this.waterPurchaseTransaction.balanceAmount;
       this.calculatePendingTrip();
       this.purchaseParty = this.waterPurchaseTransaction.waterPurchaseParty;
       this.customerName = this.waterPurchaseTransaction.customerName;
     }
+  }
 
-    // Subscribe to changes in the toggle form control
-    this.histGroupForm.get('historyMode')?.valueChanges.subscribe(value => {
-      if (value) {
-        this.fetchAllTransactions(0, 5); // Fetch all transactions only when the toggle is turned on 
+  private async checkAndRestoreActiveTrip(): Promise<void> {
+    if (!this.purchaseParty?.customerId) {
+      this.tripStateService.clearActiveTrip();
+      return;
+    }
+
+    const activeTrip = this.tripStateService.getActiveTrip();
+    if (activeTrip?.customerId === this.purchaseParty.customerId && activeTrip?.tripId) {
+      return;
+    } else {
+      await this.checkBackendForActiveTrip();
+    }
+  }
+
+  private checkBackendForActiveTrip(): Promise<void> {
+    if (!this.purchaseParty?.customerId) return Promise.resolve();
+
+    return firstValueFrom(
+      this.waterService.getInProgressTrip(this.purchaseParty.customerId)
+        .pipe(
+          catchError(error => {
+            console.error('Error fetching in-progress trip:', error);
+            this.tripStateService.clearActiveTrip();
+            return Promise.resolve(null);
+          })
+        )
+    ).then(tripData => {
+      if (tripData) {
+        this.restoreActiveTripState(tripData);
+      } else {
+        this.tripStateService.clearActiveTrip();
       }
     });
+  }
 
+  private restoreActiveTripState(tripData: ActiveTripStatus): void {
+    const pumpUsed = tripData.pumpUsed || 'inside';
+    this.tripStateService.setActiveTrip(
+      tripData.tripId ?? 0,
+      this.purchaseParty?.customerId || 0,
+      pumpUsed as 'inside' | 'outside' | 'both'
+    );
+  }
+
+  private initializeHistoryMode(): void {
+    this.histGroupForm.get('historyMode')?.valueChanges.subscribe(value => {
+      if (value) {
+        this.fetchAllTransactions(0, 5);
+      }
+    });
+  }
+
+  ngOnInit(): void {
+    this.waterPurchaseTransaction = this.activatedRoute.snapshot.data['customerData'];
+
+    this.initializeCustomerData();
+    this.checkAndRestoreActiveTrip();
+    this.initializeHistoryMode();
     this.startMotorStatusPolling();
   }
 
@@ -112,18 +164,19 @@ export class TransactCustomerComponent implements OnInit, AfterViewInit, OnDestr
     this.outsideMotorRunning = status.pump_outside.status === 'ON';
     this.waterLevel = status.water_level;
   }
-
   checkMotorStatus() {
     this.motorControlService.getMotorStatus()
       .subscribe({
         next: (response) => {
+          this.isMotorStatusAvailable = true;
           this.updatePumpStatus(response);
         },
         error: (error) => {
           console.error('Error fetching motor status:', error);
+          this.isMotorStatusAvailable = false;
           this.insideMotorRunning = false;
           this.outsideMotorRunning = false;
-          this.alertService.triggerAlert(AlertType.Error, 'Failed to fetch pump status');
+          this.alertService.triggerAlert(AlertType.Error, 'मोटर सिस्टम उपलब्ध नाही. कृपया ESP चिप चार्जिंग बटण बंद करा आणि चालू करा');
         }
       });
   }
@@ -181,7 +234,6 @@ export class TransactCustomerComponent implements OnInit, AfterViewInit, OnDestr
       }
     }
   }
-
   openPumpControlDialog() {
     const dialogRef = this.dialog.open(PumpControlDialogComponent, {
       width: '600px',
@@ -191,10 +243,59 @@ export class TransactCustomerComponent implements OnInit, AfterViewInit, OnDestr
         waterLevel: this.waterLevel
       }
     });
-
-    dialogRef.afterClosed().subscribe((result: PumpSelectionResult) => {
+    dialogRef.afterClosed().subscribe(async (result: PumpSelectionResult) => {
       if (result) {
-        this.handlePumpControl(result);
+        try {
+          // Get current pump states before changes
+          const wasInsideRunning = this.insideMotorRunning;
+          const wasOutsideRunning = this.outsideMotorRunning;
+
+          // Wait for pump control to complete
+          await this.handlePumpControl(result);
+
+          // Now we can safely proceed with trip management
+          const isStartingNewPump =
+            (!wasInsideRunning && this.insideMotorRunning) || // Inside pump was started
+            (!wasOutsideRunning && this.outsideMotorRunning); // Outside pump was started
+
+          if (isStartingNewPump && !this.tripStateService.hasActiveTrip()) {
+            // Starting pump(s) for a new trip
+            this.performAction();
+          } else if (this.tripStateService.hasActiveTrip() &&
+            !this.insideMotorRunning && !this.outsideMotorRunning) {
+            // Both pumps are now stopped and we have an active trip
+            this.updateWaterTripTime();
+          }
+        } catch (error) {
+          console.error('Error during pump control process:', error);
+          this.alertService.triggerAlert(AlertType.Error, 'Failed to complete pump operation');
+        }
+      }
+    });
+  }
+
+  updateWaterTripTime() {
+    const activeTrip = this.tripStateService.getActiveTrip();
+    if (!activeTrip?.tripId) return;
+
+    this.isRecording = true;
+    this.waterService.updateWaterTripTime(
+      this.purchaseParty?.customerId,
+      activeTrip.tripId
+    ).subscribe({
+      next: ((rcCreditReqDTO: RcCreditReqDTO[] | null) => {
+        if (rcCreditReqDTO && this.waterPurchaseTransaction) {
+          this.waterPurchaseTransaction.rcCreditReqList = rcCreditReqDTO;
+          this.tripStateService.clearActiveTrip();
+        }
+        this.isRecording = false;
+      }),
+      complete: (() => {
+        this.alertService.triggerAlert(AlertType.Success, "Trip time updated successfully!")
+      }),
+      error: (error) => {
+        this.isRecording = false;
+        this.handleError(error);
       }
     });
   }
@@ -228,21 +329,34 @@ export class TransactCustomerComponent implements OnInit, AfterViewInit, OnDestr
     });
 
   }
-
   confirmTrip(amount: number) {
     this.isRecording = true;
-    this.waterService.addWaterTrip(this.purchaseParty?.customerId, amount).subscribe({
-      next: ((waterPurchaseTransactionDTO: WaterPurchaseTransactionDTO) => {
-        if (this.waterPurchaseTransaction) {
+    // Determine which pumps are being used
+    const pumpUsed = this.insideMotorRunning && this.outsideMotorRunning ? 'both' :
+      this.insideMotorRunning ? 'inside' : 'outside';
+
+    this.waterService.addWaterTrip(this.purchaseParty?.customerId, amount, pumpUsed).subscribe({
+      next: ((waterPurchaseTransactionDTO: WaterPurchaseTransactionDTO | null) => {
+        if (waterPurchaseTransactionDTO && this.waterPurchaseTransaction) {
           this.waterPurchaseTransaction.rcCreditReqList = waterPurchaseTransactionDTO.rcCreditReqList;
           this.totalPendingAmount = waterPurchaseTransactionDTO.balanceAmount;
-          this.calculatePendingTrip()
+          this.calculatePendingTrip();
+          // Save trip state in service
+          this.tripStateService.setActiveTrip(
+            waterPurchaseTransactionDTO.purchaseId,
+            this.purchaseParty?.customerId || 0,
+            pumpUsed
+          );
         }
         this.isRecording = false;
       }),
       complete: (() => {
-        this.alertService.triggerAlert(AlertType.Success, "Trip Added Successfully !")
-      })
+        this.alertService.triggerAlert(AlertType.Success, "Trip Added Successfully!")
+      }),
+      error: (error) => {
+        this.isRecording = false;
+        this.handleError(error);
+      }
     });
   }
   calculateAmount() {

@@ -36,14 +36,23 @@
   </ng-container>
 </div>
 
-<div class="customer-grid">
-  <div *ngFor="let customer of topCustomers" class="customer-card" (click)="onRowClick(customer)">
+<div class="customer-grid">  <div *ngFor="let customer of topCustomers" class="customer-card" 
+       [class.active-pump]="activePumpCustomerId === customer.custId"
+       [class.disabled-pump]="activePumpCustomerId !== null && activePumpCustomerId !== customer.custId"
+       (click)="onRowClick(customer)">
     <mat-card class="custom-card">
       <div class="card-header">
         <mat-card-header>
-          <mat-card-title><strong>{{ customer.customerName }}</strong></mat-card-title>
+          <mat-card-title>
+            <strong>{{ customer.customerName }}</strong>
+            <mat-icon *ngIf="activePumpCustomerId === customer.custId" 
+                      class="active-pump-icon" 
+                      color="primary">water_drop</mat-icon>
+          </mat-card-title>
         </mat-card-header>
-        <button mat-icon-button [matMenuTriggerFor]="contextMenu" (click)="setSelectedCustomer(customer);$event.stopPropagation();" >
+        <button mat-icon-button [matMenuTriggerFor]="contextMenu" 
+                [disabled]="activePumpCustomerId !== null && activePumpCustomerId !== customer.custId"
+                (click)="setSelectedCustomer(customer);$event.stopPropagation();" >
           <mat-icon svgIcon="more_vert"></mat-icon> 
         </button>
       </div>

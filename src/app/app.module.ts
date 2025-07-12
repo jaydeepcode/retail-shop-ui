@@ -5,6 +5,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatIconModule, MatIconRegistry } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatMenuModule } from '@angular/material/menu';
@@ -26,6 +27,7 @@ import { SearchCustomerComponent } from './components/search-customer/search-cus
 import { TransactCustomerComponent } from './components/transact-customer/transact-customer.component';
 import { WaterPurchaseRegisterComponent } from './components/water-purchase-register/water-purchase-register.component';
 import { AbsoluteValuePipe } from './pipe/AbsoluteValuePipe';
+import { DurationPipe } from './pipe/duration.pipe';
 import { LoginComponent } from './components/login/login.component';
 import { AuthInterceptor } from './interceptor/AuthInterceptor';
 
@@ -47,7 +49,8 @@ import { AuthInterceptor } from './interceptor/AuthInterceptor';
     MatTableModule,
     MatMenuModule,
     MatSlideToggleModule,
-    MatPaginatorModule
+    MatPaginatorModule,
+    MatTooltipModule
   ],
   declarations: [
     AppComponent,
@@ -60,7 +63,8 @@ import { AuthInterceptor } from './interceptor/AuthInterceptor';
     WaterPurchaseRegisterComponent,
     AddTripConfirmationDialogComponent,
     PumpControlDialogComponent,
-    AbsoluteValuePipe
+    AbsoluteValuePipe,
+    DurationPipe
   ],
   providers: [
     { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true }

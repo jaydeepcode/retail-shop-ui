@@ -7,10 +7,18 @@ export interface CustomerProfile {
 }
 
 export interface WaterPurchaseTransactionDTO {
+  purchaseId: number;
   waterPurchaseParty: WaterPurchasePartyDTO;
   rcCreditReqList: RcCreditReqDTO[];
   customerName: string;
   balanceAmount: number;
+}
+
+export interface ActiveTripStatus {
+  tripId?: number;
+  customerId?: number;
+  startTime?: Date;
+  pumpUsed?: 'inside' | 'outside' | 'both';
 }
 
 export interface CustomerPayment {
@@ -26,6 +34,8 @@ export interface WaterPurchasePartyDTO {
   vehicleNumber: string | null;
   registrationDate: Date;
   address: string | null;
+  pumpUsed?: 'inside' | 'outside' | 'both';
+  status?: 'FILLING' | 'COMPLETED';
 }
 
 
@@ -35,6 +45,10 @@ export interface RcCreditReqDTO {
   depositAmount: number;
   balanceAmount: number;
   credBy: string;
+  status: 'FILLING' | 'COMPLETED';
+  pumpUsed: 'inside' | 'outside' | 'both';
+  endTime?: Date;
+  startTime?: Date;
 }
 
 export interface Page<T> {

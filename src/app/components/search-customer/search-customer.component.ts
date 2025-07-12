@@ -1,10 +1,11 @@
-import { Component, EventEmitter, OnInit, Output } from '@angular/core';
+import { Component, EventEmitter, OnDestroy, OnInit, Output } from '@angular/core';
 import { FormControl } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { Router } from '@angular/router';
 import { debounceTime, distinctUntilChanged } from 'rxjs';
 import { CustomerProfile } from '../../model/model';
 import { CustomerService } from '../../services/CustomerService';
+import { WaterService } from '../../services/WaterService';
 import { WaterPurchaseRegisterComponent } from '../water-purchase-register/water-purchase-register.component';
 
 @Component({
@@ -12,7 +13,7 @@ import { WaterPurchaseRegisterComponent } from '../water-purchase-register/water
   templateUrl: './search-customer.component.html',
   styleUrl: './search-customer.component.scss'
 })
-export class SearchCustomerComponent implements OnInit {
+export class SearchCustomerComponent implements OnInit, OnDestroy {
   
   @Output() selectedCustomer = new EventEmitter<CustomerProfile>();
   
@@ -20,15 +21,21 @@ export class SearchCustomerComponent implements OnInit {
   searchTerm: FormControl = new FormControl('');
   filteredCustomers: CustomerProfile[] = [];
   displayedColumns: string[] = ['customerName', 'contactNum', 'contactEdit'];
-  selectedCustomerCard: CustomerProfile | null = null;;
+  selectedCustomerCard: CustomerProfile | null = null;
+  activePumpCustomerId: number | null = null;
+  private statusCheckInterval: any;
+  private readonly CHECK_INTERVAL = 10000; // 10 seconds
 
   constructor(private customerService: CustomerService,
     private router: Router,
     private dialog: MatDialog,
+    private waterService: WaterService
   ) { }
 
   ngOnInit(): void {
     this.loadTopCustomers();
+    this.checkFillingStatus();
+    this.startStatusPolling();
     this.searchTerm.valueChanges.pipe(
       debounceTime(300),
       distinctUntilChanged()
@@ -41,6 +48,12 @@ export class SearchCustomerComponent implements OnInit {
         })
       }
     })
+  }
+
+  ngOnDestroy(): void {
+    if (this.statusCheckInterval) {
+      clearInterval(this.statusCheckInterval);
+    }
   }
 
   loadTopCustomers() {
@@ -79,5 +92,23 @@ export class SearchCustomerComponent implements OnInit {
     console.log('Deleting customer:', customer);
 
     // Implement your logic for deleting the customer's details here
+  }
+
+  checkFillingStatus() {
+    this.waterService.checkFillingStatus().subscribe({
+      next: (customerId) => {
+        this.activePumpCustomerId = customerId;
+      },
+      error: (error) => {
+        console.error('Error checking filling status:', error);
+        this.activePumpCustomerId = null;
+      }
+    });
+  }
+
+  private startStatusPolling(): void {
+    this.statusCheckInterval = setInterval(() => {
+      this.checkFillingStatus();
+    }, this.CHECK_INTERVAL);
   }
 }

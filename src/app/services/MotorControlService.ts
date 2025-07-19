@@ -1,9 +1,9 @@
 // This service handles the communication with the backend for motor control operations.
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, of } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { MotorStatusResponse } from '../model/motor.types';
+import { MotorStatusResponse, PumpStartTimeResponse } from '../model/motor.types';
 
 @Injectable({
   providedIn: 'root'
@@ -21,5 +21,10 @@ export class MotorControlService {
   getMotorStatus(): Observable<MotorStatusResponse> {
     const url = `${this.baseUrl}/api/motor/status`;
     return this.http.get<MotorStatusResponse>(url);
+  }
+
+  getPumpStartTime(tripId: number|undefined): Observable<PumpStartTimeResponse> {
+    const url = `${this.baseUrl}/api/motor/trip-time/${tripId}`;
+    return this.http.get<PumpStartTimeResponse>(url);
   }
 }

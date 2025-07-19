@@ -1,58 +1,65 @@
-$text-color: rgba(255, 255, 255, 0.9);
-$border-dark: #1a2632;
+$colors: (
+  text: rgba(255,255,255,.9),
+  bg: #2c3e50,
+  bg-dark: #34495e,
+  border: #1a2632,
+  success: #2ecc71,
+  danger: #e74c3c,
+  info: #3498db,
+  disabled: #95a5a6,
+  timer: #2196f3
+);
 
-@mixin flex-center {
+@mixin flex($dir: row) {
   display: flex;
   align-items: center;
-}
-
-@mixin button-shadow($color: #455d75) {
-  box-shadow: 0 8px 15px rgba($color, 0.3);
-}
-
-@mixin pump-button-state($bg-start, $bg-end, $badge-color) {
-  background: linear-gradient(145deg, $bg-start, $bg-end);
-  @include button-shadow($bg-start);
-  .pump-icon mat-icon {
-    color: #fff;
-    &.secondary-icon { animation: waterDrop 2s ease-in-out infinite; }
-  }
-  .status-badge { color: $badge-color; }
+  @if $dir != row { flex-direction: $dir; }
 }
 
 .pump-control-dialog {
   min-width: 320px;
   max-width: 600px;
-  width: 100%;
-  background: #2c3e50;
+  background: map-get($colors, bg);
   border-radius: 12px;
 
-  h2, mat-dialog-actions {
+  h2 {
     margin: 0;
     padding: 20px;
-    background: #34495e;
-    border-radius: 12px 12px 0 0;
-  }
-
-  h2 {
+    background: map-get($colors, bg-dark);
     color: #fff;
-    font-size: 24px;
+    font: 600 24px/1.2 sans-serif;
     text-transform: uppercase;
-    letter-spacing: 1px;
-    border-bottom: 2px solid $border-dark;
     text-align: center;
+    border-bottom: 2px solid map-get($colors, border);
   }
 
   mat-dialog-content {
-    background: linear-gradient(145deg, #3a4e61, #2c3e50);
     padding: 32px;
     margin: 0;
-    border-radius: 0 0 12px 12px;
+    background: linear-gradient(145deg, lighten(map-get($colors, bg), 5%), map-get($colors, bg));
   }
 }
 
+.pump-running-time {
+  font: 600 2rem 'Roboto Mono', monospace;
+  color: map-get($colors, timer);
+  background: rgba(map-get($colors, timer), .1);
+  padding: 1rem 2rem;
+  border-radius: 8px;
+  @include flex;
+  width: 100%;
+  gap: .5rem;
+
+  &::before {
+    content: '⏱';
+    font-size: 1.5rem;
+  }
+
+  &.running { animation: pulse 2s infinite; }
+}
+
 .pumps-container {
-  @include flex-center;
+  @include flex;
   justify-content: center;
   gap: 40px;
   flex-wrap: wrap;
@@ -65,54 +72,50 @@ $border-dark: #1a2632;
 }
 
 .pump-button {
-  @include flex-center;
-  position: relative;
+  @include flex(column);
   width: 100%;
   height: 180px;
-  flex-direction: column;
-  border: none;
+  border: 0;
   border-radius: 50%;
-  cursor: pointer;
   padding: 20px;
-  transition: .3s cubic-bezier(.4,0,.2,1);
-  @include pump-button-state(#455d75, #34495e, #455d75);
+  cursor: pointer;
+  transition: .3s;
+  background: linear-gradient(145deg, #455d75, map-get($colors, bg-dark));
+  box-shadow: 0 8px 15px rgba(#455d75, .3);
 
-  &:not(:disabled) {
-    &:hover {
-      transform: translateY(-2px) scale(1.02);
-      box-shadow: 0 12px 20px rgba(0,0,0,.4);
-    }
-    &:active {
-      transform: translateY(2px) scale(.98);
-      box-shadow: 0 4px 10px rgba(0,0,0,.3);
-    }
+  &:not(:disabled):hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 20px rgba(0,0,0,.4);
   }
 
-  &.running { @include pump-button-state(#2ecc71, #27ae60, #27ae60); }
-  &.selected.running { @include pump-button-state(#e74c3c, #c0392b, #c0392b); }
-  &.selected:not(.running) { @include pump-button-state(#3498db, #2980b9, #2980b9); }
+  &.running {
+    background: linear-gradient(145deg, map-get($colors, success), darken(map-get($colors, success), 10%));
+  }
+  
+  &.selected {
+    &.running {
+      background: linear-gradient(145deg, map-get($colors, danger), darken(map-get($colors, danger), 10%));
+    }
+    &:not(.running) {
+      background: linear-gradient(145deg, map-get($colors, info), darken(map-get($colors, info), 10%));
+    }
+  }
 
   &:disabled {
     opacity: .5;
     cursor: not-allowed;
-    background: linear-gradient(145deg, #95a5a6, #7f8c8d);
-    box-shadow: 0 4px 8px rgba(0,0,0,.2);
+    background: linear-gradient(145deg, map-get($colors, disabled), darken(map-get($colors, disabled), 10%));
   }
 }
 
 .pump-icon {
-  @include flex-center;
-  flex-direction: column;
+  @include flex(column);
   gap: 8px;
   margin-bottom: 12px;
   
   mat-icon {
-    color: $text-color;
-    transition: .3s;
-    filter: drop-shadow(0 2px 4px rgba(0,0,0,.2));
-    font: {
-      size: 36px;
-    }
+    color: #fff;
+    font-size: 36px;
     height: 36px;
     width: 36px;
 
@@ -120,55 +123,53 @@ $border-dark: #1a2632;
       font-size: 24px;
       height: 24px;
       width: 24px;
-      margin-top: -8px;
+      animation: waterDrop 2s infinite;
     }
   }
 }
 
 .pump-status {
-  @include flex-center;
-  flex-direction: column;
+  @include flex(column);
   gap: 8px;
   
   .pump-name {
-    font-size: 18px;
-    font-weight: 600;
-    color: $text-color;
+    font: 600 18px/1.2 sans-serif;
+    color: map-get($colors, text);
   }
 
   .status-badge {
     padding: 4px 12px;
     border-radius: 20px;
-    font-size: 14px;
     background: rgba(255,255,255,.9);
-    font-weight: 500;
   }
 }
 
 mat-dialog-actions {
-  border-top: 2px solid $border-dark;
-  border-radius: 0 0 12px 12px;
+  padding: 20px;
+  background: map-get($colors, bg-dark);
   gap: 16px;
+  border-top: 2px solid map-get($colors, border);
 
   button {
     min-width: 120px;
     border-radius: 25px;
     padding: 8px 24px;
-    font-weight: 500;
     text-transform: uppercase;
-    letter-spacing: .5px;
 
-    &[mat-raised-button] { box-shadow: 0 4px 8px rgba(0,0,0,.2); }
-    
     &[mat-button] {
-      color: $text-color;
+      color: map-get($colors, text);
       border: 2px solid rgba(255,255,255,.2);
-      &:hover { background: rgba(255,255,255,.1); }
     }
   }
 }
 
 @keyframes waterDrop {
-  0%, 100% { transform: translateY(0) scale(1); opacity: 1; }
+  0%, 100% { transform: translateY(0); }
   50% { transform: translateY(8px) scale(.8); opacity: .6; }
+}
+
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(map-get($colors, timer), .4); }
+  70% { box-shadow: 0 0 0 10px rgba(map-get($colors, timer), 0); }
+  100% { box-shadow: 0 0 0 0 rgba(map-get($colors, timer), 0); }
 }

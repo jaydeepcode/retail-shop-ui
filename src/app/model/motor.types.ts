@@ -1,6 +1,10 @@
 export type PumpStatus = 'ON' | 'OFF';
 export type WaterLevel = 'LOW' | 'MEDIUM' | 'HIGH';
 
+export interface PumpStartTimeResponse {
+    startTime?: string;
+}
+
 export interface PumpStateResponse {
     status: PumpStatus;
 }

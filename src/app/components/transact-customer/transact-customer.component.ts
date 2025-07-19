@@ -4,9 +4,9 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatPaginator, PageEvent } from '@angular/material/paginator';
 import { MatTableDataSource } from '@angular/material/table';
 import { ActivatedRoute } from '@angular/router';
-import { catchError, firstValueFrom, interval, Subject, Subscription, takeUntil } from 'rxjs';
+import { catchError, firstValueFrom, interval, Observable, of, Subject, Subscription, takeUntil } from 'rxjs';
 import { ActiveTripStatus, CustomerPayment, RcCreditReqDTO, WaterPurchasePartyDTO, WaterPurchaseTransactionDTO } from '../../model/model';
-import { MotorStatusResponse, PumpSelectionResult } from '../../model/motor.types';
+import { MotorStatusResponse, PumpSelectionResult, PumpStartTimeResponse } from '../../model/motor.types';
 import { MotorControlService } from '../../services/MotorControlService';
 import { WaterService } from '../../services/WaterService';
 import { AlertService, AlertType } from '../../services/alert.service';
@@ -14,6 +14,7 @@ import { TripStateService } from '../../services/trip-state.service';
 import { AddTripConfirmationDialogComponent } from '../add-trip-confirmation-dialog/add-trip-confirmation-dialog.component';
 import { PaymentModalComponent } from '../payment-modal/payment-modal.component';
 import { PumpControlDialogComponent } from '../pump-control-dialog/pump-control-dialog.component';
+import { Messages } from '../../constants/messages';
 
 @Component({
   selector: 'app-transact-customer',
@@ -176,7 +177,7 @@ export class TransactCustomerComponent implements OnInit, AfterViewInit, OnDestr
           this.isMotorStatusAvailable = false;
           this.insideMotorRunning = false;
           this.outsideMotorRunning = false;
-          this.alertService.triggerAlert(AlertType.Error, 'मोटर सिस्टम उपलब्ध नाही. कृपया ESP चिप चार्जिंग बटण बंद करा आणि चालू करा');
+          this.alertService.triggerAlert(AlertType.Error, Messages.MOTOR_SYSTEM_UNAVAILABLE);
         }
       });
   }
@@ -235,14 +236,36 @@ export class TransactCustomerComponent implements OnInit, AfterViewInit, OnDestr
     }
   }
   openPumpControlDialog() {
+    const activeTrip = this.tripStateService.getActiveTrip();
+    console.log('Testing Active Trip:', activeTrip);  
+    // Create an observable that either gets the pump start time or returns undefined
+    const startTimeObservable = (activeTrip?.tripId ? 
+      this.motorControlService.getPumpStartTime(activeTrip.tripId).pipe(
+        catchError(error => {
+          console.error('Error fetching pump start time:', error);
+          this.alertService.triggerAlert(AlertType.Error, 'Failed to fetch pump start time');
+          return of({ startTime: undefined });
+        })
+      ) : 
+      of({ startTime: undefined })) as Observable<PumpStartTimeResponse>;
+
+    // Handle the dialog opening and result processing
+    firstValueFrom(startTimeObservable).then(startTimeResponse => {
+      this.openPumpControlDialogWithData(startTimeResponse);
+    });
+  }
+
+  private openPumpControlDialogWithData(startTimeResponse: PumpStartTimeResponse) {
     const dialogRef = this.dialog.open(PumpControlDialogComponent, {
       width: '600px',
       data: {
         insideStatus: this.insideMotorRunning ? 'ON' : 'OFF',
         outsideStatus: this.outsideMotorRunning ? 'ON' : 'OFF',
-        waterLevel: this.waterLevel
+        waterLevel: this.waterLevel,
+        tripStartTime: startTimeResponse?.startTime ? new Date(startTimeResponse.startTime) : undefined,
       }
     });
+
     dialogRef.afterClosed().subscribe(async (result: PumpSelectionResult) => {
       if (result) {
         try {
@@ -272,6 +295,20 @@ export class TransactCustomerComponent implements OnInit, AfterViewInit, OnDestr
         }
       }
     });
+  }
+
+  getRunningPumpStartTime() {
+    const activeTrip: ActiveTripStatus = this.tripStateService.getActiveTrip();
+
+   return this.motorControlService.getPumpStartTime(activeTrip.tripId).subscribe({
+      next: (response) => {
+        return response.startTime ? new Date(response.startTime) : undefined;
+      },
+      error: (error) => {
+        console.error('Error fetching pump start time:', error);
+        this.alertService.triggerAlert(AlertType.Error, 'Failed to fetch pump start time');
+      }
+    })
   }
 
   updateWaterTripTime() {

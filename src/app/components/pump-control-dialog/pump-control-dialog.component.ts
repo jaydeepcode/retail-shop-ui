@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit } from '@angular/core';
+import { Component, Inject, OnInit, OnDestroy } from '@angular/core';
 import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { PumpStatus, PumpSelectionResult } from '../../model/motor.types';
 import { AuthService } from '../../services/auth.service';
@@ -8,6 +8,7 @@ interface PumpControlData {
   insideStatus: PumpStatus;
   outsideStatus: PumpStatus;
   waterLevel: string;
+  tripStartTime?: Date;  // Start time for inside pump
 }
 
 @Component({
@@ -15,12 +16,16 @@ interface PumpControlData {
   templateUrl: './pump-control-dialog.component.html',
   styleUrls: ['./pump-control-dialog.component.scss']
 })
-export class PumpControlDialogComponent extends BaseDialogComponent implements OnInit {
+export class PumpControlDialogComponent extends BaseDialogComponent implements OnInit, OnDestroy {
   // Track selected pumps status
   selectedPumps = {
     inside: false,
     outside: false
   };
+
+  // Track running time for each pump
+  tripRunningTime: string = '';
+  private updateInterval: any;
 
   constructor(
     dialogRef: MatDialogRef<PumpControlDialogComponent>,
@@ -35,6 +40,40 @@ export class PumpControlDialogComponent extends BaseDialogComponent implements O
     if (this.data.insideStatus === 'OFF' && this.data.outsideStatus === 'OFF') {
       this.selectedPumps.inside = true;
       this.selectedPumps.outside = true;
+    }
+
+    // Initialize running times and start update interval
+    this.updateRunningTimes();
+    this.updateInterval = setInterval(() => this.updateRunningTimes(), 1000);
+  }
+
+  // Update running times for active pumps
+  private updateRunningTimes(): void {
+    if (!!this.data.tripStartTime && (this.data.insideStatus === 'ON' ||  this.data.outsideStatus === 'ON' )) {
+      this.tripRunningTime = this.calculateRunningTime(this.data.tripStartTime);
+    } else {
+      this.tripRunningTime = '';
+    }
+  }
+
+  // Calculate running time from start time
+  private calculateRunningTime(startTime: Date |undefined): string {
+    if (!startTime) {
+      return '';
+    } 
+    const now = new Date();
+    const diff = now.getTime() - new Date(startTime).getTime();
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  }
+
+  override ngOnDestroy() {
+    super.ngOnDestroy();
+    if (this.updateInterval) {
+      clearInterval(this.updateInterval);
     }
   }
 

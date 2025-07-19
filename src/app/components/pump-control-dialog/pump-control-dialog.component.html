@@ -1,6 +1,8 @@
 <div class="pump-control-dialog">
   <h2 mat-dialog-title>Water Pump Controls</h2>
-
+  <div class="pump-running-time" *ngIf="tripRunningTime">
+              Running time: {{tripRunningTime}}
+  </div>
   <mat-dialog-content>
     <div class="pumps-container">
       <!-- Inside Pump -->

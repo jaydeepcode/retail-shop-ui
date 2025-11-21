@@ -24,7 +24,7 @@ export class AuthService {
 
     refreshToken(): Observable<{ accessToken: string, refreshToken: string }> {
         const refreshToken = localStorage.getItem('refreshToken');
-        return this.http.post<{ accessToken: string, refreshToken: string }>(`${this.apiUrl}/api/refresh-token`, {} , {
+        return this.http.post<{ accessToken: string, refreshToken: string }>(`${this.apiUrl}/refresh-token`, {} , {
             headers: {'Refresh-Token': refreshToken ? refreshToken : ''}
             })
             .pipe(tap((response) => {

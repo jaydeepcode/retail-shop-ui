@@ -10,7 +10,7 @@ export class AuthInterceptor implements HttpInterceptor {
 
     intercept(req: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
         // Skip processing for the refresh-token endpoint
-        if (req.url.includes('/api/refresh-token')) {
+        if (req.url.includes('/refresh-token')) {
             return next.handle(req);
         }
         
@@ -26,7 +26,7 @@ export class AuthInterceptor implements HttpInterceptor {
 
         return next.handle(req).pipe(
             catchError((error) => {
-                if (error.status === 401 || error.status === 0 || error.status === 403) {
+                if (error.status === 0 || error.status === 403) {
                     // Token expired, try to refresh it
                     return this.authService.refreshToken().pipe(
                         switchMap((response) => {

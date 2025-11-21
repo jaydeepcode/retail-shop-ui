@@ -2,7 +2,7 @@
     <h1>Mangle Communications</h1>
     <mat-card class="login-card">
         <mat-card-header>
-            <mat-card-title>Login</mat-card-title>
+            <mat-card-title>{{ loginForm.get('signup')?.value ? 'Register New Account' : 'Login' }}</mat-card-title>
         </mat-card-header>
         <mat-card-content>
             <form [formGroup]="loginForm" (ngSubmit)="login()">
@@ -10,35 +10,57 @@
 
                     <mat-form-field appearance="fill">
                         <mat-label>Username</mat-label>
-                        <input matInput formControlName="username" required>
+                        <input matInput formControlName="username" autocomplete="username" required>
                         <mat-error *ngIf="loginForm.get('username')?.hasError('required')">Username is
                             required</mat-error>
                     </mat-form-field>
                     <mat-form-field appearance="fill">
                         <mat-label>Password</mat-label>
-                        <input matInput [type]="hide ? 'password' : 'text'" formControlName="password" required>
+                        <input matInput 
+                               [type]="hide ? 'password' : 'text'" 
+                               formControlName="password" 
+                               autocomplete="current-password"
+                               required>
+                        <button mat-icon-button 
+                                matSuffix 
+                                (click)="hide = !hide" 
+                                type="button"
+                                [attr.aria-label]="'Toggle password visibility'"
+                                [attr.aria-pressed]="!hide">
+                            <mat-icon>{{hide ? 'visibility_off' : 'visibility'}}</mat-icon>
+                        </button>
                         <mat-error *ngIf="loginForm.get('password')?.hasError('required')">Password is
                             required</mat-error>
                     </mat-form-field>
 
                     <mat-form-field appearance="fill" *ngIf="loginForm.get('signup')?.value">
                         <mat-label>Confirm Password</mat-label>
-                        <input matInput [type]="hide ? 'password' : 'text'" formControlName="confirmPassword"
-                            required />
-                        <!-- <mat-error *ngIf="loginForm.get('confirmPassword')?.hasError('required')">Confirm Password is
-                            required</mat-error> -->
+                        <input matInput 
+                               [type]="hideConfirm ? 'password' : 'text'" 
+                               formControlName="confirmPassword"
+                               autocomplete="new-password"
+                               required />
+                        <button mat-icon-button 
+                                matSuffix 
+                                (click)="hideConfirm = !hideConfirm" 
+                                type="button"
+                                [attr.aria-label]="'Toggle confirm password visibility'"
+                                [attr.aria-pressed]="!hideConfirm">
+                            <mat-icon>{{hideConfirm ? 'visibility_off' : 'visibility'}}</mat-icon>
+                        </button>
                         <mat-error *ngIf="loginForm.hasError('mismatch')">Passwords must match</mat-error>
                     </mat-form-field>
                     <div *ngIf="loginForm.get('signup')?.value">
                         <mat-form-field appearance="fill">
-                            <mat-label>First Name</mat-label> <input matInput formControlName="firstName" required />
-                            <mat-error *ngIf="loginForm.get('firstname')?.hasError('required')">First name is
+                            <mat-label>First Name</mat-label>
+                            <input matInput formControlName="firstName" autocomplete="given-name" required />
+                            <mat-error *ngIf="loginForm.get('firstName')?.hasError('required')">First name is
                                 required</mat-error>
                         </mat-form-field>
                         <mat-form-field appearance="fill">
                             <mat-label>Last Name</mat-label>
-                            <input matInput formControlName="lastName" required />
-                            <mat-error *ngIf="loginForm.get('lastname')?.hasError('required')">Last name is
+                            <input matInput formControlName="lastName" autocomplete="family-name" required />
+                            <mat-error *ngIf="loginForm.get('lastName')?.hasError('required')">Last name is
                                 required</mat-error>
                         </mat-form-field>
                         <mat-form-field appearance="fill">
@@ -52,14 +74,26 @@
                     </div>
                 </div>
                 <div class="login-actions">
-                    <button mat-raised-button color="primary" type="submit"> {{loginForm.get('signup')?.value ?
-                        'Register' :
-                        'Login' }}</button>
+                    <button mat-raised-button 
+                            color="primary" 
+                            type="submit"
+                            [disabled]="loginForm.invalid || isLoading">
+                        <span *ngIf="!isLoading">
+                            {{ loginForm.get('signup')?.value ? 'Register' : 'Login' }}
+                        </span>
+                        <span *ngIf="isLoading" class="loading-container">
+                            <mat-spinner diameter="20"></mat-spinner>
+                            <span class="loading-text">
+                                {{ loginForm.get('signup')?.value ? 'Creating Account...' : 'Signing In...' }}
+                            </span>
+                        </span>
+                    </button>
                     <mat-slide-toggle formControlName="signup">Register</mat-slide-toggle>
                 </div>
             </form>
-            <div *ngIf="error" class="error-message">
-                {{ error }}
+            <div *ngIf="error" class="error-message-container">
+                <mat-icon class="error-icon">error</mat-icon>
+                <span class="error-text">{{ error }}</span>
             </div>
         </mat-card-content>
     </mat-card>

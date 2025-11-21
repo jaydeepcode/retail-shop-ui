@@ -23,6 +23,10 @@ h1 {
   background: rgba(255, 255, 255, 0.8);
 }
 
+mat-form-field {
+  width: 100%;
+}
+
 .login-actions {
   display: grid;
   grid-template-columns: 1fr auto; /* Adjust the fraction as needed */
@@ -30,7 +34,55 @@ h1 {
   align-items: center; /* Center align the items vertically */
 }
 
-.error-message{
-  color: red;
-  font-size: small;
+.loading-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.loading-text {
+  margin-left: 8px;
+}
+
+button[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed !important;
+}
+
+.error-message-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  margin-top: 16px;
+  background-color: #ffebee;
+  border-left: 4px solid #f44336;
+  border-radius: 4px;
+  color: #c62828;
+  font-size: 14px;
+  animation: slideIn 0.3s ease-out;
+}
+
+.error-icon {
+  color: #f44336;
+  font-size: 20px;
+  width: 20px;
+  height: 20px;
+}
+
+.error-text {
+  flex: 1;
+  line-height: 1.4;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

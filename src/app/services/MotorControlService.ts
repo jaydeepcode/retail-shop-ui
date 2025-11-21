@@ -14,17 +14,17 @@ export class MotorControlService {
   constructor(private http: HttpClient) { }
 
   toggleMotorStatus(action: 'start' | 'stop', pump: 'inside' | 'outside'): Observable<MotorStatusResponse> {
-    const url = `${this.baseUrl}/api/motor/pump/${pump}/${action}`;
+    const url = `${this.baseUrl}/motor/pump/${pump}/${action}`;
     return this.http.post<MotorStatusResponse>(url, {});
   }
 
   getMotorStatus(): Observable<MotorStatusResponse> {
-    const url = `${this.baseUrl}/api/motor/status`;
+    const url = `${this.baseUrl}/motor/status`;
     return this.http.get<MotorStatusResponse>(url);
   }
 
   getPumpStartTime(tripId: number|undefined): Observable<PumpStartTimeResponse> {
-    const url = `${this.baseUrl}/api/motor/trip-time/${tripId}`;
+    const url = `${this.baseUrl}/motor/trip-time/${tripId}`;
     return this.http.get<PumpStartTimeResponse>(url);
   }
 }

@@ -16,7 +16,7 @@ export class UserDetailService {
     }
 
     loadUserDetail() {
-        this.apiService.getData<any>('/api/user/details').subscribe({
+        this.apiService.getData<any>('/user/details').subscribe({
             next: (response) => {
                 this.setUserDetail(response);
             },

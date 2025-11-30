@@ -84,4 +84,16 @@ export class WaterService {
             })
         );
     }
+
+    updateTripAmount(customerId: number, tripId: number, newAmount: number): Observable<WaterPurchaseTransactionDTO | null> {
+        if (customerId && tripId) {
+            const params = {
+                customerId: customerId,
+                tripId: tripId,
+                amount: newAmount
+            };
+            return this.apiService.putData<WaterPurchaseTransactionDTO>(`/party/update-trip-amount`, null, params);
+        }
+        return of(null);
+    }
 }

@@ -7,12 +7,19 @@ import { ActiveTripStatus } from '../model/model';
 export class TripStateService {
     private activeTrip: ActiveTripStatus = {};
 
-    setActiveTrip(tripId: number, customerId: number, pumpUsed: 'inside' | 'outside' | 'both') {
+    setActiveTrip(
+        tripId: number, 
+        customerId: number, 
+        pumpUsed: 'inside' | 'outside' | 'both',
+        startTime?: Date,
+        expectedDurationSeconds?: number
+    ) {
         this.activeTrip = {
             tripId,
             customerId,
-            startTime: new Date(),
-            pumpUsed
+            startTime: startTime || new Date(),
+            pumpUsed,
+            expectedDurationSeconds
         };
     }
 

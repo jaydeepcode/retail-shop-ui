@@ -18,7 +18,9 @@ export interface ActiveTripStatus {
   tripId?: number;
   customerId?: number;
   startTime?: Date;
+  tripStartTime?: Date | string; // Backend sends this as tripStartTime
   pumpUsed?: 'inside' | 'outside' | 'both';
+  expectedDurationSeconds?: number;
 }
 
 export interface CustomerPayment {

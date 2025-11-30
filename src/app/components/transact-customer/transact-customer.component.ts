@@ -11,6 +11,7 @@ import { MotorControlService } from '../../services/MotorControlService';
 import { WaterService } from '../../services/WaterService';
 import { AlertService, AlertType } from '../../services/alert.service';
 import { TripStateService } from '../../services/trip-state.service';
+import { CustomerService } from '../../services/CustomerService';
 import { AddTripConfirmationDialogComponent } from '../add-trip-confirmation-dialog/add-trip-confirmation-dialog.component';
 import { PaymentModalComponent } from '../payment-modal/payment-modal.component';
 import { PumpControlDialogComponent } from '../pump-control-dialog/pump-control-dialog.component';
@@ -42,6 +43,13 @@ export class TransactCustomerComponent implements OnInit, AfterViewInit, OnDestr
   private statusSubscription: Subscription | undefined;
   private pollingInterval = 5000; // 5 seconds
 
+  // Countdown timer properties
+  public tripCountdown: number = 0;
+  private expectedEndTime: number = 0; // Calculated: startTime + expectedDuration in milliseconds
+  private countdownInterval: any;
+  private autoStopDialogRef: any = null; // MatDialogRef<PumpControlDialogComponent> | null
+  private currentTripId: number | null = null; // Store trip ID for potential amount updates
+
   @ViewChild(MatPaginator) paginator!: MatPaginator;
   private ngUnsubscribe$ = new Subject<void>();
   constructor(
@@ -51,7 +59,8 @@ export class TransactCustomerComponent implements OnInit, AfterViewInit, OnDestr
     private dialog: MatDialog,
     private activatedRoute: ActivatedRoute,
     private motorControlService: MotorControlService,
-    private tripStateService: TripStateService
+    private tripStateService: TripStateService,
+    private customerService: CustomerService
   ) {
     this.histGroupForm = this.fb.group({
       historyMode: [false]
@@ -78,7 +87,7 @@ export class TransactCustomerComponent implements OnInit, AfterViewInit, OnDestr
 
     const activeTrip = this.tripStateService.getActiveTrip();
     if (activeTrip?.customerId === this.purchaseParty.customerId && activeTrip?.tripId) {
-      return;
+       this.restoreActiveTripState(activeTrip);
     } else {
       await this.checkBackendForActiveTrip();
     }
@@ -107,11 +116,27 @@ export class TransactCustomerComponent implements OnInit, AfterViewInit, OnDestr
 
   private restoreActiveTripState(tripData: ActiveTripStatus): void {
     const pumpUsed = tripData.pumpUsed || 'inside';
+    
+    // Map backend response (tripStartTime) to startTime
+    const startTime = tripData.tripStartTime ? new Date(tripData.tripStartTime) : tripData.startTime;
+    
+    // Store backend's startTime and expectedDurationSeconds in TripStateService
     this.tripStateService.setActiveTrip(
       tripData.tripId ?? 0,
       this.purchaseParty?.customerId || 0,
-      pumpUsed as 'inside' | 'outside' | 'both'
+      pumpUsed as 'inside' | 'outside' | 'both',
+      startTime,
+      tripData.expectedDurationSeconds
     );
+
+    // Start countdown from backend data
+    if (startTime && tripData.expectedDurationSeconds) {
+      const tripDataWithStartTime = {
+        ...tripData,
+        startTime: startTime
+      };
+      this.startCountdown(tripDataWithStartTime);
+    }
   }
 
   private initializeHistoryMode(): void {
@@ -135,6 +160,7 @@ export class TransactCustomerComponent implements OnInit, AfterViewInit, OnDestr
     this.ngUnsubscribe$.next();
     this.ngUnsubscribe$.complete();
     this.stopMotorStatusPolling();
+    this.clearCountdown();
   }
 
   stopMotorStatusPolling(): void {
@@ -165,6 +191,7 @@ export class TransactCustomerComponent implements OnInit, AfterViewInit, OnDestr
     this.outsideMotorRunning = status.pump_outside.status === 'ON';
     this.waterLevel = status.water_level;
   }
+
   checkMotorStatus() {
     this.motorControlService.getMotorStatus()
       .subscribe({
@@ -316,6 +343,9 @@ export class TransactCustomerComponent implements OnInit, AfterViewInit, OnDestr
     if (!activeTrip?.tripId) return;
 
     this.isRecording = true;
+    // Clear countdown when trip is stopped manually
+    this.clearCountdown();
+    
     this.waterService.updateWaterTripTime(
       this.purchaseParty?.customerId,
       activeTrip.tripId
@@ -324,6 +354,7 @@ export class TransactCustomerComponent implements OnInit, AfterViewInit, OnDestr
         if (rcCreditReqDTO && this.waterPurchaseTransaction) {
           this.waterPurchaseTransaction.rcCreditReqList = rcCreditReqDTO;
           this.tripStateService.clearActiveTrip();
+          this.currentTripId = null; // Clear trip ID when trip is completed
         }
         this.isRecording = false;
       }),
@@ -361,41 +392,130 @@ export class TransactCustomerComponent implements OnInit, AfterViewInit, OnDestr
 
   performAction() {
     this.calculateAmount().subscribe(calculatedAmount => {
+      // Determine which pumps are being used
+      const pumpUsed = this.insideMotorRunning && this.outsideMotorRunning ? 'both' :
+        this.insideMotorRunning ? 'inside' : 'outside';
+
+      // Immediately call addWaterTrip asynchronously (fire-and-forget)
+      this.addWaterTripAsync(calculatedAmount, pumpUsed);
+      
+      // Show confirmation dialog (trip is already being created in background)
       const dialogRef = this.dialog.open(AddTripConfirmationDialogComponent, { data: { amount: calculatedAmount } });
-      dialogRef.afterClosed().subscribe(result => { if (result) { this.confirmTrip(result.amount); } });
-    });
-
-  }
-  confirmTrip(amount: number) {
-    this.isRecording = true;
-    // Determine which pumps are being used
-    const pumpUsed = this.insideMotorRunning && this.outsideMotorRunning ? 'both' :
-      this.insideMotorRunning ? 'inside' : 'outside';
-
-    this.waterService.addWaterTrip(this.purchaseParty?.customerId, amount, pumpUsed).subscribe({
-      next: ((waterPurchaseTransactionDTO: WaterPurchaseTransactionDTO | null) => {
-        if (waterPurchaseTransactionDTO && this.waterPurchaseTransaction) {
-          this.waterPurchaseTransaction.rcCreditReqList = waterPurchaseTransactionDTO.rcCreditReqList;
-          this.totalPendingAmount = waterPurchaseTransactionDTO.balanceAmount;
-          this.calculatePendingTrip();
-          // Save trip state in service
-          this.tripStateService.setActiveTrip(
-            waterPurchaseTransactionDTO.purchaseId,
-            this.purchaseParty?.customerId || 0,
-            pumpUsed
-          );
+      dialogRef.afterClosed().subscribe(result => {
+        if (result) {
+          // If user adjusted amount, update trip
+          if (result.amount !== calculatedAmount && this.currentTripId) {
+            this.updateTripAmount(result.amount);
+          }
         }
-        this.isRecording = false;
-      }),
-      complete: (() => {
-        this.alertService.triggerAlert(AlertType.Success, "Trip Added Successfully!")
-      }),
-      error: (error) => {
-        this.isRecording = false;
-        this.handleError(error);
-      }
+      });
     });
   }
+
+  private addWaterTripAsync(amount: number, pumpUsed: 'inside' | 'outside' | 'both'): void {
+    // Fire and forget - don't wait for response
+    this.waterService.addWaterTrip(this.purchaseParty?.customerId, amount, pumpUsed)
+      .subscribe({
+        next: async (waterPurchaseTransactionDTO: WaterPurchaseTransactionDTO | null) => {
+          if (waterPurchaseTransactionDTO && this.waterPurchaseTransaction) {
+            this.waterPurchaseTransaction.rcCreditReqList = waterPurchaseTransactionDTO.rcCreditReqList;
+            this.totalPendingAmount = waterPurchaseTransactionDTO.balanceAmount;
+            this.calculatePendingTrip();
+            
+            // Store trip ID for potential amount updates
+            this.currentTripId = waterPurchaseTransactionDTO.purchaseId;
+            
+            // Fetch backend trip data to get startTime and expectedDurationSeconds
+            if (this.purchaseParty?.customerId) {
+              try {
+                const tripData = await firstValueFrom(
+                  this.waterService.getInProgressTrip(this.purchaseParty.customerId).pipe(
+                    catchError(error => {
+                      console.error('Error fetching in-progress trip after recording:', error);
+                      return of(null);
+                    })
+                  )
+                );
+
+                if (tripData) {
+                  // Map backend response (tripStartTime) to startTime
+                  const startTime = tripData.tripStartTime ? new Date(tripData.tripStartTime) : tripData.startTime;
+                  
+                  // Update stored trip ID from backend if available
+                  if (tripData.tripId) {
+                    this.currentTripId = tripData.tripId;
+                  }
+                  
+                  // Save trip state with backend values
+                  this.tripStateService.setActiveTrip(
+                    tripData.tripId ?? waterPurchaseTransactionDTO.purchaseId,
+                    this.purchaseParty?.customerId || 0,
+                    pumpUsed,
+                    startTime,
+                    tripData.expectedDurationSeconds
+                  );
+
+                  // Start countdown with backend data
+                  const tripDataWithStartTime = {
+                    ...tripData,
+                    startTime: startTime
+                  };
+                  this.startCountdown(tripDataWithStartTime);
+                } else {
+                  // Fallback: save trip state without backend data
+                  this.tripStateService.setActiveTrip(
+                    waterPurchaseTransactionDTO.purchaseId,
+                    this.purchaseParty?.customerId || 0,
+                    pumpUsed
+                  );
+                }
+              } catch (error) {
+                console.error('Error fetching trip data after recording:', error);
+                // Fallback: save trip state without backend data
+                this.tripStateService.setActiveTrip(
+                  waterPurchaseTransactionDTO.purchaseId,
+                  this.purchaseParty?.customerId || 0,
+                  pumpUsed
+                );
+              }
+            }
+            // Show success alert after trip is created
+            this.alertService.triggerAlert(AlertType.Success, "Trip Added Successfully!");
+          }
+        },
+        error: (error) => {
+          console.error('Error creating trip asynchronously:', error);
+          this.alertService.triggerAlert(AlertType.Error, 'Failed to create trip: ' + error.message);
+          this.currentTripId = null;
+        }
+      });
+  }
+
+  private updateTripAmount(newAmount: number): void {
+    if (!this.currentTripId || !this.purchaseParty?.customerId) {
+      this.alertService.triggerAlert(AlertType.Error, 'Cannot update trip: Trip ID not available');
+      return;
+    }
+
+    this.isRecording = true;
+    this.waterService.updateTripAmount(this.purchaseParty.customerId, this.currentTripId, newAmount)
+      .subscribe({
+        next: (waterPurchaseTransactionDTO: WaterPurchaseTransactionDTO | null) => {
+          if (waterPurchaseTransactionDTO && this.waterPurchaseTransaction) {
+            this.waterPurchaseTransaction.rcCreditReqList = waterPurchaseTransactionDTO.rcCreditReqList;
+            this.totalPendingAmount = waterPurchaseTransactionDTO.balanceAmount;
+            this.calculatePendingTrip();
+            this.alertService.triggerAlert(AlertType.Success, "Trip amount updated successfully!");
+          }
+          this.isRecording = false;
+        },
+        error: (error) => {
+          this.isRecording = false;
+          this.handleError(error);
+        }
+      });
+  }
+  
   calculateAmount() {
     return this.waterService.getCalculatedAmount(this.purchaseParty?.customerId);
   }
@@ -433,5 +553,123 @@ export class TransactCustomerComponent implements OnInit, AfterViewInit, OnDestr
       return true;
     else
       return false;
+  }
+
+  // Countdown timer methods
+  private startCountdown(tripData: ActiveTripStatus): void {
+    // Clear any existing countdown
+    this.clearCountdown();
+
+    const startTimeValue = tripData.startTime || tripData.tripStartTime;
+    if (!startTimeValue || !tripData.expectedDurationSeconds) {
+      console.warn('Cannot start countdown: missing startTime or expectedDurationSeconds');
+      return;
+    }
+
+    const startTime = new Date(startTimeValue).getTime();
+    this.expectedEndTime = startTime + (tripData.expectedDurationSeconds * 1000);
+    
+    // Initial calculation
+    this.updateCountdown();
+
+    // Update countdown every second
+    this.countdownInterval = setInterval(() => {
+      this.updateCountdown();
+    }, 1000);
+  }
+
+  private updateCountdown(): void {
+    const now = new Date().getTime();
+    const remainingSeconds = Math.max(0, Math.floor((this.expectedEndTime - now) / 1000));
+    console.log('Remaining seconds:', remainingSeconds);
+    this.tripCountdown = remainingSeconds;
+
+    // Auto-stop dialog at 9 seconds
+    if (remainingSeconds === 9 && !this.autoStopDialogRef) {
+      this.showAutoStopDialog();
+    }
+
+    // Auto-stop at 0 seconds
+    if (remainingSeconds === 0) {
+      this.handleAutoStop();
+    }
+  }
+
+  private clearCountdown(): void {
+    if (this.countdownInterval) {
+      clearInterval(this.countdownInterval);
+      this.countdownInterval = null;
+    }
+    if (this.autoStopDialogRef) {
+      this.autoStopDialogRef.close();
+      this.autoStopDialogRef = null;
+    }
+    this.tripCountdown = 0;
+    this.expectedEndTime = 0;
+  }
+
+  private showAutoStopDialog(): void {
+    console.log('Showing auto-stop dialog with countdown:', this.tripCountdown);
+    // Open auto-stop dialog at 9 seconds
+    const dialogRef = this.dialog.open(PumpControlDialogComponent, {
+      width: '600px',
+      disableClose: true,
+      data: {
+        insideStatus: this.insideMotorRunning ? 'ON' : 'OFF',
+        outsideStatus: this.outsideMotorRunning ? 'ON' : 'OFF',
+        waterLevel: this.waterLevel,
+        tripStartTime: this.tripStateService.getActiveTrip()?.startTime,
+        autoStopMode: true,
+        countdown: this.tripCountdown
+      }
+    });
+
+    this.autoStopDialogRef = dialogRef;
+
+    // Auto-close and stop after countdown reaches 0
+    const autoStopCheck = setInterval(() => {
+      if (this.tripCountdown <= 0) {
+        clearInterval(autoStopCheck);
+        if (this.autoStopDialogRef) {
+          this.autoStopDialogRef.close();
+          this.autoStopDialogRef = null;
+        }
+        //this.handleAutoStop();
+      }
+    }, 500);
+  }
+
+  private async handleAutoStop(): Promise<void> {
+    this.clearCountdown();
+    
+    if (!this.tripStateService.hasActiveTrip()) {
+      return;
+    }
+
+    // Backend handles pump stopping automatically
+    // After 2-second delay, fetch latest customer data to refresh rcCreditReqList
+    setTimeout(() => {
+      if (this.purchaseParty?.customerId) {
+        this.customerService.getTransactions(this.purchaseParty.customerId).subscribe({
+          next: (waterPurchaseTransactionDTO: WaterPurchaseTransactionDTO) => {
+            if (waterPurchaseTransactionDTO && this.waterPurchaseTransaction) {
+              this.waterPurchaseTransaction.rcCreditReqList = waterPurchaseTransactionDTO.rcCreditReqList;
+              this.totalPendingAmount = waterPurchaseTransactionDTO.balanceAmount;
+              this.calculatePendingTrip();
+            }
+            // Clear the active trip state after refreshing data
+            this.tripStateService.clearActiveTrip();
+          },
+          error: (error) => {
+            console.error('Error fetching customer transactions after auto-stop:', error);
+            // Clear the active trip state even if refresh fails
+            this.tripStateService.clearActiveTrip();
+          }
+        });
+      } else {
+        // Clear the active trip state if no customer ID
+        this.tripStateService.clearActiveTrip();
+      }
+    }, 2000);
   }
 }

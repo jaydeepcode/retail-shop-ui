@@ -42,6 +42,14 @@ export class PumpControlDialogComponent extends BaseDialogComponent implements O
       this.selectedPumps.outside = true;
     }
 
+    if( this.data.insideStatus === 'ON' ) {
+      this.selectedPumps.inside = true;
+    }
+
+    if( this.data.outsideStatus === 'ON' ) {
+      this.selectedPumps.outside = true;
+    }
+
     // Initialize running times and start update interval
     this.updateRunningTimes();
     this.updateInterval = setInterval(() => this.updateRunningTimes(), 1000);

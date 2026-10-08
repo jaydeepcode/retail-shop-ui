@@ -57,8 +57,15 @@ export class AutoLogoutService implements OnDestroy {
     }
 
     unsubscribeServices() {
-        this.eventSubscription.unsubscribe();
-        this.timerSubscription.unsubscribe();
+        // Both are created lazily — eventSubscription in initInactivityTimer, and
+        // timerSubscription only once resetTimer has run, which needs a debounced
+        // activity event. Logging out before that left this throwing on undefined.
+        if (this.eventSubscription) {
+            this.eventSubscription.unsubscribe();
+        }
+        if (this.timerSubscription) {
+            this.timerSubscription.unsubscribe();
+        }
     }
 
     ngOnDestroy(): void {

@@ -1,0 +1,13 @@
+<div class="placeholder" *ngIf="copy">
+  <h2 class="placeholder-title">{{ copy.title }}</h2>
+  <p class="placeholder-note">{{ copy.note }}</p>
+
+  <div class="placeholder-slated">
+    <h3 class="placeholder-slated-head">Still to build here</h3>
+    <ul>
+      <li *ngFor="let item of copy.slated">{{ item }}</li>
+    </ul>
+  </div>
+
+  <a *ngIf="copy.preview as preview" class="placeholder-preview" [routerLink]="preview.to">{{ preview.label }}</a>
+</div>

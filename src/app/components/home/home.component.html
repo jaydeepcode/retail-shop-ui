@@ -13,17 +13,84 @@
         </div>
     </div>
 
-    <!-- Image Grid Section -->
-    <div class="bus-type-water">
-        <div class="image-grid">
-            <div class="image-container">
-                <img src="assets/images/mini-water-tanker.png" routerLink="/search-customer"
-                    alt="Mini Water Tanker Being Filled">
-                <div class="image-overlay">
-                    <p>Manage Water Sales</p>
-                </div>
+    <!-- One tile per business, per artboard 0. Every tile is a real <a> so Tab reaches
+         it, and every caption is always visible — a tablet has no hover to reveal one. -->
+    <div class="bus-type-grid">
+        <nav class="tile-grid" aria-label="Businesses">
+            <a class="tile" routerLink="/search-customer">
+                <span class="tile-art tile-art-water">
+                    <img src="assets/images/mini-water-tanker.png" alt="">
+                </span>
+                <span class="tile-text">
+                    <span class="tile-name">Water</span>
+                    <span class="tile-what">Trips, customers, pump control</span>
+                </span>
+            </a>
+
+            <a class="tile" routerLink="/recharge">
+                <span class="tile-art tile-art-recharge" aria-hidden="true">
+                    <svg width="46" height="46" viewBox="0 0 48 48" fill="none" stroke="#1D37A0" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="14" y="4" width="20" height="40" rx="3" />
+                        <path d="M20 10h8" />
+                        <path d="M24 36v.1" />
+                    </svg>
+                </span>
+                <span class="tile-text">
+                    <span class="tile-name">Recharge</span>
+                    <span class="tile-what">Counter, worklist, failures, history, float top-up, rates</span>
+                </span>
+            </a>
+
+            <a class="tile" routerLink="/credit">
+                <span class="tile-art tile-art-credit" aria-hidden="true">
+                    <svg width="46" height="46" viewBox="0 0 48 48" fill="none" stroke="#54327E" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M10 8h22a4 4 0 0 1 4 4v28H14a4 4 0 0 1-4-4z" />
+                        <path d="M10 36h26" />
+                        <path d="M18 17h10" />
+                        <path d="M18 24h10" />
+                    </svg>
+                </span>
+                <span class="tile-text">
+                    <span class="tile-name">Credit book</span>
+                    <span class="tile-what">Who owes us &mdash; one tab per person, every business</span>
+                </span>
+            </a>
+
+            <a class="tile" routerLink="/tickets">
+                <span class="tile-art tile-art-ticket" aria-hidden="true">
+                    <svg width="46" height="46" viewBox="0 0 48 48" fill="none" stroke="#1F5134" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M5 16a4 4 0 0 0 0 16v6h38v-6a4 4 0 0 1 0-16v-6H5z" />
+                        <path d="M22 10v28" />
+                    </svg>
+                </span>
+                <span class="tile-text">
+                    <span class="tile-name">Ticket booking</span>
+                    <span class="tile-what">Rail and bus &mdash; fare, passengers, commission</span>
+                </span>
+            </a>
+
+            <a class="tile" routerLink="/accounts">
+                <span class="tile-art tile-art-accounts" aria-hidden="true">
+                    <svg width="46" height="46" viewBox="0 0 48 48" fill="none" stroke="#7A4E07" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="24" cy="24" r="17" />
+                        <path d="M24 13v11l7 5" />
+                    </svg>
+                </span>
+                <span class="tile-text">
+                    <span class="tile-name">Day&rsquo;s end &amp; accounts</span>
+                    <span class="tile-what">Count the drawer, settle UPI, expenses, transfers, reports</span>
+                </span>
+            </a>
+
+            <!-- Phase 2, per FRD §2.2. Not a link, because there is nowhere to go. -->
+            <div class="tile tile-deferred">
+                <span class="tile-name">Crockery</span>
+                <span class="tile-what">Phase 2 &mdash; the grid already takes another tile with no layout change</span>
             </div>
-            <!-- Add more images here as functionalities increase -->
-        </div>
+        </nav>
     </div>
 </div>

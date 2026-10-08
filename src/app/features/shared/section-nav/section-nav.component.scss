@@ -1,0 +1,90 @@
+@use '../tokens' as t;
+
+.section-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 10px 24px;
+  box-sizing: border-box;
+  background: t.$bar;
+  color: #ffffff;
+  font-family: t.$sans;
+}
+
+.section-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #ffffff;
+  text-decoration: none;
+  white-space: nowrap;
+
+  &:hover,
+  &:focus-visible {
+    text-decoration: underline;
+  }
+}
+
+.section-tabs {
+  display: flex;
+  gap: 3px;
+  flex-wrap: wrap;
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 13px;
+  border-radius: 4px;
+  color: t.$bar-text;
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+
+  &:hover {
+    background: t.$bar-strip;
+    color: #ffffff;
+  }
+
+  &.is-current {
+    background: t.$primary;
+    color: #ffffff;
+    font-weight: 600;
+
+    .tab-shortcut { opacity: 0.85; }
+  }
+}
+
+.tab-badge {
+  background: t.$badge-warn;
+  color: #ffffff;
+  font-family: t.$mono;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 9px;
+
+  &.is-ok { background: t.$badge-ok; }
+}
+
+.tab-shortcut {
+  font-family: t.$mono;
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+.section-rule {
+  width: 1px;
+  height: 24px;
+  background: t.$bar-rule;
+}
+
+.section-subtitle,
+.section-meta {
+  margin: 0;
+  font-size: 12px;
+  color: t.$bar-text;
+}
+
+.section-spacer { flex-grow: 1; }

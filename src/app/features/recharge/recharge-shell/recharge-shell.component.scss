@@ -1,0 +1,28 @@
+@use '../../shared/shell';
+@use '../../shared/tokens' as t;
+
+.float-strip {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 7px 24px;
+  box-sizing: border-box;
+  background: t.$bar-strip;
+  color: t.$bar-text;
+  font-size: 12px;
+}
+
+.float-strip-label { color: t.$bar-dim; }
+
+.float-wallet {
+  font-family: t.$mono;
+
+  b { color: #ffffff; }
+}
+
+.float-strip-note {
+  color: t.$bar-dim;
+  font-style: italic;
+}

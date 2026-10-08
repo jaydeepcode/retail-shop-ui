@@ -1,0 +1,60 @@
+@use '../tokens' as t;
+
+.placeholder {
+  max-width: 680px;
+  padding: 24px 26px;
+  box-sizing: border-box;
+  background: t.$surface;
+  border: 1px solid t.$border;
+  border-radius: 6px;
+  font-family: t.$sans;
+  color: t.$ink;
+}
+
+.placeholder-title {
+  margin: 0;
+  font-size: 21px;
+  font-weight: 600;
+}
+
+.placeholder-note {
+  margin: 6px 0 0;
+  font-size: 14px;
+  color: t.$ink-muted;
+}
+
+.placeholder-slated {
+  margin-top: 20px;
+  padding: 16px 18px;
+  border-radius: 5px;
+  background: t.$surface-sunk;
+  border: 1px dashed t.$border;
+
+  ul {
+    margin: 8px 0 0;
+    padding-left: 20px;
+    font-size: 13px;
+    color: t.$ink-muted;
+  }
+
+  li + li { margin-top: 4px; }
+}
+
+.placeholder-slated-head {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: t.$ink-muted;
+}
+
+.placeholder-preview {
+  display: inline-block;
+  margin-top: 18px;
+  font-size: 13px;
+  font-weight: 600;
+  color: t.$primary;
+
+  &:hover { color: t.$primary-dark; }
+}

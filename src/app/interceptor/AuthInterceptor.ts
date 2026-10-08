@@ -26,7 +26,9 @@ export class AuthInterceptor implements HttpInterceptor {
 
         return next.handle(req).pipe(
             catchError((error) => {
-                if (error.status === 0 || error.status === 403) {
+                // A status of 0 means the server was never reached; no refreshed
+                // token can fix that, so it must not force a logout.
+                if (error.status === 403) {
                     // Token expired, try to refresh it
                     return this.authService.refreshToken().pipe(
                         switchMap((response) => {

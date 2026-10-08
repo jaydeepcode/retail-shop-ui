@@ -1,0 +1,25 @@
+<div class="section-bar">
+  <!-- The artboards draw the section name as plain text. It is a link here so a
+       keyboard-only operator has a way back to the dashboard. -->
+  <a class="section-name" routerLink="/home"
+     [attr.aria-label]="sectionName + ' — back to the dashboard'">{{ sectionName }}</a>
+
+  <nav *ngIf="tabs.length" class="section-tabs" [attr.aria-label]="sectionName + ' screens'">
+    <a *ngFor="let tab of tabs; let i = index" class="tab"
+       [routerLink]="tab.link" routerLinkActive="is-current"
+       [attr.aria-keyshortcuts]="'Alt+' + (i + 1)">
+      <span class="tab-label">{{ tab.label }}</span>
+      <span *ngIf="tab.badge" class="tab-badge" [class.is-ok]="tab.badgeTone === 'ok'">{{ tab.badge }}<span
+        class="visually-hidden"> waiting</span></span>
+      <span class="tab-shortcut" aria-hidden="true">Alt+{{ i + 1 }}</span>
+    </a>
+  </nav>
+
+  <ng-container *ngIf="!tabs.length && subtitle">
+    <span class="section-rule" aria-hidden="true"></span>
+    <p class="section-subtitle">{{ subtitle }}</p>
+  </ng-container>
+
+  <span class="section-spacer"></span>
+  <p class="section-meta">{{ meta }}</p>
+</div>

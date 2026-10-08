@@ -1,0 +1,13 @@
+<div class="section-shell">
+  <app-section-nav sectionName="Recharge" [tabs]="tabs" [meta]="meta"></app-section-nav>
+
+  <div class="float-strip" *ngIf="showFloatStrip">
+    <span class="float-strip-label">Float</span>
+    <span class="float-wallet" *ngFor="let wallet of wallets">{{ wallet }} <b>&mdash;</b></span>
+    <span class="float-strip-note">balances arrive with the float endpoint &mdash; nothing is stubbed in their place</span>
+  </div>
+
+  <div class="section-body">
+    <router-outlet></router-outlet>
+  </div>
+</div>

@@ -1,0 +1,470 @@
+<!-- Artboards 1 and 3 (entry) and artboard 2 (waiting) — one screen, two states. -->
+
+<p *ngIf="configError" class="counter-fault" role="alert">{{ configError }}</p>
+
+<div *ngIf="!config && !configError" class="counter-loading">Loading the counter…</div>
+
+<div *ngIf="config" class="counter" [class.is-waiting]="state === 'waiting'">
+
+  <!-- ===================== ENTRY — artboards 1 and 3 ===================== -->
+  <ng-container *ngIf="state === 'entry'">
+
+    <div class="counter-entry">
+
+      <section class="card entry-card" aria-labelledby="entry-heading">
+        <h2 id="entry-heading" class="visually-hidden">New recharge</h2>
+
+        <!-- service type -->
+        <div class="service-row" role="group" aria-label="What is being recharged">
+          <button type="button" class="service" [class.is-on]="serviceType === 'MOBILE'"
+                  (click)="chooseService('MOBILE')" aria-keyshortcuts="F1"
+                  [attr.aria-pressed]="serviceType === 'MOBILE'">Mobile</button>
+          <button type="button" class="service" [class.is-on]="serviceType === 'TV'"
+                  (click)="chooseService('TV')" aria-keyshortcuts="F2"
+                  [attr.aria-pressed]="serviceType === 'TV'">TV</button>
+          <span class="keycap" aria-hidden="true">F1 / F2</span>
+        </div>
+
+        <!-- ---------- mobile: the number, and its seen-before hint ---------- -->
+        <div *ngIf="serviceType === 'MOBILE'" class="field">
+          <label for="counter-number">Mobile number</label>
+          <input #numberField id="counter-number" class="big-input" type="text"
+                 inputmode="numeric" autocomplete="off" [value]="numberText"
+                 (input)="onNumberInput($any($event.target).value)"
+                 (keydown.enter)="addToBasket()">
+
+          <!-- `known: false` is the ordinary answer until V15 runs, so it is not an error. -->
+          <p *ngIf="hintChecked && hintKnown" class="hint">
+            <span class="hint-badge">SEEN BEFORE</span>
+            <span>{{ hintSummary }} — prefilled below</span>
+          </p>
+          <p *ngIf="hintChecked && !hintKnown" class="hint hint-plain">
+            A new number here — nothing to prefill.
+          </p>
+        </div>
+
+        <!-- ---------- TV: the connection, searched or typed ---------- -->
+        <ng-container *ngIf="serviceType === 'TV'">
+
+          <div *ngIf="tvMode === 'search'" class="field">
+            <label for="counter-connection">Connection — search by name, phone or box number</label>
+            <input #connectionField id="counter-connection" class="mid-input" type="text"
+                   autocomplete="off" [value]="connectionQuery"
+                   (input)="onConnectionInput($any($event.target).value)">
+
+            <p *ngIf="connectionSearching" class="hint hint-plain">Searching…</p>
+
+            <ul *ngIf="connectionResults.length" class="results" aria-label="Matching connections">
+              <li *ngFor="let connection of connectionResults">
+                <button type="button" class="result" (click)="chooseConnection(connection)">
+                  <span class="result-main">
+                    <span class="result-name">{{ connection.name }}</span>
+                    <span class="result-sub mono">{{ connection.connectionNumber }}<span
+                      *ngIf="connection.contactNumber"> · {{ connection.contactNumber }}</span></span>
+                  </span>
+                  <span class="result-op">{{ connection.operatorCode }}</span>
+                </button>
+              </li>
+            </ul>
+
+            <p *ngIf="connectionQuery.trim().length >= 2 && !connectionSearching && !connectionResults.length && !chosenConnection"
+               class="hint hint-plain">No connection matches that.</p>
+
+            <!-- A box that is not among rc_dishtv_dtls' 458 rows still has to be sellable. -->
+            <p class="field-aside">
+              <button type="button" class="link" (click)="enterConnectionByHand()">
+                Not in the list — type the box number instead
+              </button>
+            </p>
+
+            <div *ngIf="chosenConnection" class="chosen">
+              <span class="chosen-name">{{ chosenConnection.name }}</span>
+              <span class="mono">{{ chosenConnection.connectionNumber }}</span>
+              <span class="chosen-op">{{ chosenConnection.operatorCode }}</span>
+            </div>
+          </div>
+
+          <div *ngIf="tvMode === 'manual'" class="field">
+            <label for="counter-number">Box number</label>
+            <input #numberField id="counter-number" class="big-input" type="text"
+                   inputmode="numeric" autocomplete="off" [value]="numberText"
+                   (input)="onNumberInput($any($event.target).value)"
+                   (keydown.enter)="addToBasket()">
+            <p class="field-aside">
+              <button type="button" class="link" (click)="backToConnectionSearch()">
+                Back to searching by name
+              </button>
+            </p>
+          </div>
+        </ng-container>
+
+        <hr class="rule">
+
+        <!-- ---------- operator ----------
+             Hidden when a chosen connection already names one: the connection knows
+             its own operator, so asking again would be asking twice. -->
+        <div *ngIf="!chosenConnection" class="field">
+          <span class="field-label" id="operator-label">Operator</span>
+          <div class="chips" role="group" aria-labelledby="operator-label">
+            <button *ngFor="let operator of operators" type="button" class="chip chip-operator"
+                    [class.is-on]="operator.code === operatorCode"
+                    [attr.aria-pressed]="operator.code === operatorCode"
+                    (click)="chooseOperator(operator.code)">{{ operator.name }}</button>
+            <span class="chips-aside" *ngIf="chosenOperator">
+              via <b>{{ routeNameOf(chosenOperator.defaultRouteCode) }}</b> — confirmed when it is done
+            </span>
+          </div>
+        </div>
+
+        <hr class="rule">
+
+        <!-- ---------- amount, and our charge ---------- -->
+        <div class="amount-row">
+
+          <div class="field">
+            <label for="counter-amount">{{ serviceType === 'TV' ? 'Recharge amount' : 'Amount' }}</label>
+            <div class="amount-controls">
+              <span class="rupee" aria-hidden="true">₹</span>
+
+              <!-- TV gets a ±₹10 stepper, not chips: Dish TV's commonest amount is 16% of
+                   its volume against mobile's 78%, which is too flat for presets to pay. -->
+              <button *ngIf="usesStepper" type="button" class="stepper"
+                      aria-label="Decrease amount by ten rupees" (click)="stepAmount(-10)">−</button>
+
+              <input #amountField id="counter-amount" class="amount-input" type="text"
+                     inputmode="numeric" autocomplete="off" [value]="amountText"
+                     (input)="amountText = $any($event.target).value; entryError = ''"
+                     (keydown.enter)="addToBasket()">
+
+              <button *ngIf="usesStepper" type="button" class="stepper"
+                      aria-label="Increase amount by ten rupees" (click)="stepAmount(10)">+</button>
+
+              <!-- Presets are per operator and come straight from config. The list is
+                   legitimately empty for every TV operator and for Vi, and empty means
+                   a bare field — never a spinner waiting for rows. -->
+              <div *ngIf="!usesStepper && presets.length" class="presets">
+                <span class="presets-label">Common for {{ chosenOperator?.name }}</span>
+                <div class="chips">
+                  <button *ngFor="let preset of presets" type="button" class="chip chip-amount mono"
+                          [class.is-on]="amountText === (preset + '')"
+                          (click)="choosePreset(preset)">{{ preset }}</button>
+                </div>
+              </div>
+            </div>
+            <p *ngIf="usesStepper" class="field-note">
+              Steps of ₹10. No preset buttons — TV amounts are spread too evenly for them to help.
+            </p>
+            <p *ngIf="!usesStepper && chosenOperator && !presets.length" class="field-note">
+              No common amounts on file for {{ chosenOperator.name }} — type it in.
+            </p>
+          </div>
+
+          <!-- Our charge is its own field, defaulted on for DTH and off for mobile, and
+               editable either way. Never merged into the amount: it reaches a different
+               income account and is 60% of DTH margin. -->
+          <div class="field field-surcharge">
+            <label for="counter-surcharge">Our charge</label>
+            <div class="amount-controls">
+              <span class="rupee" aria-hidden="true">₹</span>
+              <input id="counter-surcharge" class="surcharge-input" type="text"
+                     inputmode="numeric" autocomplete="off" [value]="surchargeText"
+                     (input)="onSurchargeInput($any($event.target).value)"
+                     (keydown.enter)="addToBasket()">
+            </div>
+            <p class="field-note">Kept as its own figure, never folded into the recharge amount.</p>
+          </div>
+        </div>
+
+        <p *ngIf="entryError" class="entry-error" role="alert">{{ entryError }}</p>
+
+        <div class="add-row">
+          <button type="button" class="btn btn-dark" [disabled]="!canAddToBasket"
+                  (click)="addToBasket()">Add to basket</button>
+          <span class="keycap" aria-hidden="true">Enter</span>
+        </div>
+      </section>
+    </div>
+
+    <!-- ===================== basket and payment ===================== -->
+    <div class="counter-side">
+
+      <section class="card" aria-labelledby="basket-heading">
+        <h2 id="basket-heading" class="card-title">
+          Basket
+          <span class="card-title-aside">
+            {{ basket.length }} {{ basket.length === 1 ? 'recharge' : 'recharges' }}
+          </span>
+        </h2>
+
+        <p *ngIf="!basket.length" class="basket-empty">Nothing in the basket yet.</p>
+
+        <!-- A strip, not a grid: no basket has ever held more than three. -->
+        <ul *ngIf="basket.length" class="basket-strip">
+          <li *ngFor="let item of basket; let i = index; trackBy: lineKey" class="basket-line"
+              [class.is-bad]="badLineIndex === i">
+            <span class="basket-main">
+              <span class="mono basket-number">{{ item.number }}</span>
+              <span class="basket-sub">
+                {{ item.operatorName }}<span *ngIf="item.defaultRouteName"> · {{ item.defaultRouteName }}</span><span
+                *ngIf="item.connectionName"> · {{ item.connectionName }}</span>
+              </span>
+            </span>
+            <span class="basket-money">
+              <span class="mono basket-amount">₹{{ item.amount }}</span>
+              <span *ngIf="item.surcharge" class="mono basket-surcharge">+ ₹{{ item.surcharge }} ours</span>
+            </span>
+            <button type="button" class="basket-remove"
+                    [attr.aria-label]="'Remove the ' + item.operatorName + ' recharge for ' + item.number + ' from the basket'"
+                    (click)="removeLine(i)">✕</button>
+          </li>
+        </ul>
+
+        <p class="basket-total">
+          <span>Total due</span>
+          <span class="mono basket-total-figure">₹{{ provisionalTotal | number: '1.2-2' }}</span>
+        </p>
+      </section>
+
+      <section class="card card-grow" aria-labelledby="payment-heading">
+        <h2 id="payment-heading" class="card-title">How the customer paid</h2>
+
+        <div class="methods" role="group" aria-label="Payment methods">
+          <button type="button" class="method" [class.is-on]="isMethodOn('CASH')"
+                  [attr.aria-pressed]="isMethodOn('CASH')" (click)="toggleMethod('CASH')">
+            Cash<span *ngIf="isMethodOn('CASH')" aria-hidden="true"> ✓</span>
+          </button>
+          <button type="button" class="method" [class.is-on]="isMethodOn('UPI')"
+                  [attr.aria-pressed]="isMethodOn('UPI')" (click)="toggleMethod('UPI')">
+            UPI<span *ngIf="isMethodOn('UPI')" aria-hidden="true"> ✓</span>
+          </button>
+          <button type="button" class="method" [class.is-on]="isMethodOn('CREDIT')"
+                  [attr.aria-pressed]="isMethodOn('CREDIT')" (click)="toggleMethod('CREDIT')">
+            Credit<span *ngIf="isMethodOn('CREDIT')" aria-hidden="true"> ✓</span>
+          </button>
+        </div>
+        <p class="methods-note">
+          Tap a second one to split the payment — the rows then have to add up to the total.
+          A split is about 1 sale in 240.
+        </p>
+
+        <!-- The single-method case types nothing: the one line carries the basket. -->
+        <div *ngIf="isSingleMethod" class="pay-single">
+          <ng-container *ngIf="line('CASH') as cash">
+            <div class="field">
+              <label for="counter-tendered">Cash taken</label>
+              <div class="amount-controls">
+                <span class="rupee" aria-hidden="true">₹</span>
+                <input id="counter-tendered" class="pay-input" type="text" inputmode="numeric"
+                       autocomplete="off" [(ngModel)]="cash.amountTendered"
+                       (keydown.enter)="takePayment()">
+              </div>
+              <p class="field-note">Leave it blank if they gave the exact money.</p>
+            </div>
+            <!-- Change is not computed here. §14.5 keeps anything under ₹5 off the screen,
+                 and the server decides which side of that a sale falls on. -->
+            <p class="field-note">
+              Any change to hand back is shown once the payment is taken.
+            </p>
+          </ng-container>
+
+          <div *ngIf="line('UPI') as upi" class="field">
+            <label for="counter-upi-ref">UPI reference <span class="optional">— optional</span></label>
+            <input id="counter-upi-ref" class="pay-input mono" type="text" autocomplete="off"
+                   [(ngModel)]="upi.reference">
+          </div>
+        </div>
+
+        <!-- The split case: one row per method, each typed, and they must sum. -->
+        <div *ngIf="!isSingleMethod" class="pay-rows">
+          <div *ngFor="let row of payment" class="pay-row">
+            <span class="pay-row-label">{{ row.method === 'CREDIT' ? 'Credit' : row.method }}</span>
+            <input class="pay-input mono" type="text" inputmode="numeric" autocomplete="off"
+                   [attr.aria-label]="row.method + ' amount of the sale'" [(ngModel)]="row.amount">
+            <ng-container *ngIf="row.method === 'CASH'">
+              <label class="pay-row-sub" [attr.for]="'counter-tendered-split'">taken</label>
+              <input id="counter-tendered-split" class="pay-input mono" type="text"
+                     inputmode="numeric" autocomplete="off" [(ngModel)]="row.amountTendered">
+            </ng-container>
+            <input *ngIf="row.method === 'UPI'" class="pay-input pay-ref mono" type="text"
+                   autocomplete="off" aria-label="UPI reference" [(ngModel)]="row.reference">
+          </div>
+        </div>
+
+        <!-- Credit needs a name, and the warning is the server's own `warn` flag. -->
+        <div *ngIf="line('CREDIT') as credit" class="credit-panel"
+             [class.is-warn]="credit.customer?.warn">
+          <ng-container *ngIf="!credit.customer">
+            <label for="counter-customer">Who is taking it on credit?</label>
+            <input id="counter-customer" class="pay-input" type="text" autocomplete="off"
+                   [value]="customerQuery" (input)="onCustomerQuery($any($event.target).value)">
+            <p *ngIf="customerSearching" class="field-note">Searching…</p>
+            <ul *ngIf="customerResults.length" class="results" aria-label="Matching customers">
+              <li *ngFor="let customer of customerResults">
+                <button type="button" class="result" (click)="chooseCustomer(customer)">
+                  <span class="result-main">
+                    <span class="result-name">{{ customer.name }}</span>
+                    <span class="result-sub mono">{{ customer.contactNumber }}</span>
+                  </span>
+                  <span class="result-op mono">₹{{ customer.outstanding | number: '1.2-2' }}</span>
+                </button>
+              </li>
+            </ul>
+            <p *ngIf="customerQuery.trim().length >= 2 && !customerSearching && !customerResults.length"
+               class="field-note">Nobody matches that.</p>
+          </ng-container>
+
+          <ng-container *ngIf="credit.customer as customer">
+            <div class="credit-head">
+              <span class="credit-name">{{ customer.name }}</span>
+              <span class="mono credit-phone">{{ customer.contactNumber }}</span>
+              <button type="button" class="btn btn-small" (click)="clearCustomer()">Change</button>
+            </div>
+            <dl class="credit-figures">
+              <!-- §14.8's mirror rule: a charge consumes any advance first, then becomes debt. -->
+              <div *ngIf="customer.advanceHeld">
+                <dt>Has with us</dt>
+                <dd class="mono">₹{{ customer.advanceHeld | number: '1.2-2' }}</dd>
+              </div>
+              <div>
+                <dt>Already owes</dt>
+                <dd class="mono">₹{{ customer.outstanding | number: '1.2-2' }}</dd>
+              </div>
+              <div>
+                <dt>Oldest unpaid</dt>
+                <dd class="mono">{{ customer.oldestDebtDays ? customer.oldestDebtDays + ' days' : '—' }}</dd>
+              </div>
+            </dl>
+            <p *ngIf="customer.warn" class="credit-warn">
+              This tab is old enough to be worth a word before adding to it.
+            </p>
+          </ng-container>
+        </div>
+
+        <div class="pay-foot">
+          <p *ngIf="!isSingleMethod" class="left-to-allocate">
+            <span>Left to allocate</span>
+            <span class="mono" [class.is-clear]="leftToAllocate === 0">₹{{ leftToAllocate | number: '1.2-2' }}</span>
+          </p>
+
+          <p *ngIf="settleError" class="entry-error" role="alert">{{ settleError }}</p>
+
+          <button type="button" class="btn btn-primary btn-take" [disabled]="!canTakePayment"
+                  aria-keyshortcuts="F12" (click)="takePayment()">
+            {{ settling ? 'Taking payment…' : 'Take payment' }}
+            <span class="keycap keycap-on-dark" aria-hidden="true">F12</span>
+          </button>
+          <p class="pay-after">
+            No receipt. After this the screen holds the sale until the recharge is done.
+          </p>
+        </div>
+      </section>
+    </div>
+  </ng-container>
+
+  <!-- ===================== WAITING — artboard 2 ===================== -->
+  <ng-container *ngIf="state === 'waiting' && held as transaction">
+
+    <div class="counter-entry">
+
+      <!-- The big figure is the number to recharge, not the change: the change was dealt
+           with on the payment side and does not need saying twice. -->
+      <section class="held" *ngIf="current as recharge" aria-labelledby="held-heading">
+        <div class="held-main">
+          <h2 id="held-heading" class="held-kicker">Recharge this now</h2>
+          <p class="mono held-number">{{ recharge.number }}</p>
+          <p class="held-what">
+            <span class="held-operator">{{ recharge.operatorName }}</span>
+            <span class="mono held-amount">₹{{ recharge.amount }}</span>
+            <span *ngIf="recharge.surcharge" class="held-surcharge mono">+ ₹{{ recharge.surcharge }} ours</span>
+          </p>
+        </div>
+        <div class="held-rule" aria-hidden="true"></div>
+        <div class="held-aside">
+          <p *ngIf="cashTaken !== null">
+            Paid <b class="mono">₹{{ cashTaken }}</b> cash —
+            <ng-container *ngIf="changeToShow !== null">hand back
+              <b class="mono">₹{{ changeToShow | number: '1.2-2' }}</b></ng-container>
+            <ng-container *ngIf="changeToShow === null">nothing to hand back</ng-container>
+          </p>
+          <p>Payment <span class="mono">{{ transaction.paymentReference }}</span></p>
+          <p>The money is in the drawer and on the books already.</p>
+          <p *ngIf="transaction.recharges.length > 1" class="held-progress">
+            Recharge {{ answeringIndex + 1 }} of {{ transaction.recharges.length }} on this payment.
+          </p>
+        </div>
+      </section>
+
+      <p class="held-note">
+        Go and do it in the operator's app now, then come back here. This screen stays as it
+        is until you answer.
+      </p>
+
+      <p class="held-why">
+        <span class="held-why-label">Why not a pop-up</span>
+        <span>You have to leave this app to do the recharge. A dialog would sit on top of
+          everything while you were away, and you would come back unsure whether it was still
+          live. This is the counter in a second state, not a window over it.</span>
+      </p>
+    </div>
+
+    <div class="counter-side">
+      <section class="card card-grow" aria-labelledby="answer-heading" *ngIf="current as recharge">
+        <h2 id="answer-heading" class="answer-heading">Did it go through?</h2>
+
+        <button type="button" class="answer answer-yes" [disabled]="answering"
+                aria-keyshortcuts="F8" (click)="markDone()">
+          <span class="answer-main">
+            <span class="answer-title">Yes — via {{ routeOverride ? routeNameOf(routeOverride) : recharge.routeName }}</span>
+            <span class="answer-sub">the usual connection for {{ recharge.operatorName }}</span>
+          </span>
+          <span class="keycap keycap-on-dark" aria-hidden="true">F8</span>
+        </button>
+
+        <!-- The route rides on "yes" — it is the first moment anyone knows which
+             connection was used, and an override is 2 recharges in six months, so it
+             is one small line rather than a control of its own. -->
+        <div class="route-switch" *ngIf="otherRoutes.length">
+          <label for="counter-route">Had to use a different connection?</label>
+          <select id="counter-route" [(ngModel)]="routeOverride">
+            <option value="">{{ recharge.routeName }} — the usual</option>
+            <option *ngFor="let route of otherRoutes" [value]="route.code">{{ route.name }}</option>
+          </select>
+        </div>
+
+        <button type="button" class="answer answer-no" [disabled]="answering"
+                aria-keyshortcuts="F9" (click)="markFailed()">
+          <span class="answer-main">
+            <span class="answer-title">No, it failed</span>
+            <span class="answer-sub">nothing leaves the wallet; their money stays with us</span>
+          </span>
+          <span class="keycap" aria-hidden="true">F9</span>
+        </button>
+
+        <hr class="rule">
+
+        <div class="field">
+          <label for="counter-vendor-ref">Operator's reference <span class="optional">— optional</span></label>
+          <input id="counter-vendor-ref" class="pay-input mono" type="text" autocomplete="off"
+                 placeholder="paste if the app gave one" [(ngModel)]="vendorRef">
+        </div>
+
+        <p *ngIf="answerError" class="entry-error" role="alert">{{ answerError }}</p>
+
+        <div class="pay-foot">
+          <div class="set-aside">
+            <div>
+              <p class="set-aside-title">Someone else is waiting?</p>
+              <p class="set-aside-sub">
+                Set {{ setAsideCount === 1 ? 'this' : 'these ' + setAsideCount }} aside and serve
+                them. It moves to the worklist.
+              </p>
+            </div>
+            <button type="button" class="btn btn-small" (click)="setAside()">
+              Set aside <span class="keycap" aria-hidden="true">Esc</span>
+            </button>
+          </div>
+        </div>
+      </section>
+    </div>
+  </ng-container>
+</div>

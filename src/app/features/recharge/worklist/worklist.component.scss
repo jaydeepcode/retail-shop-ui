@@ -1,0 +1,465 @@
+@use '../../shared/tokens' as t;
+
+// Artboard 4. A 720px tray and the pick-up panel beside it at 1440 wide.
+
+:host {
+  display: block;
+  font-family: t.$sans;
+  color: t.$ink;
+}
+
+.tray {
+  display: flex;
+  gap: 22px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.tray-main {
+  flex: 1 1 560px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.tray-side {
+  flex: 0 1 420px;
+  min-width: 300px;
+}
+
+.mono { font-family: t.$mono; }
+
+.rule {
+  height: 1px;
+  margin: 0;
+  border: 0;
+  background: t.$border-light;
+}
+
+// ------------------------------------------------- the main state: nothing waiting
+
+.tray-clear {
+  max-width: 560px;
+  padding: 30px 32px;
+  background: t.$surface;
+  border: 1px solid t.$border;
+  border-radius: 6px;
+  text-align: center;
+}
+
+.tray-clear-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.tray-clear-note {
+  margin: 10px 0 22px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: t.$ink-muted;
+}
+
+.tray-loading,
+.tray-fault {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 0;
+  max-width: 680px;
+  padding: 16px 20px;
+  background: t.$surface;
+  border: 1px solid t.$border;
+  border-radius: 6px;
+  font-size: 14px;
+  color: t.$ink-muted;
+}
+
+.tray-fault {
+  border-left: 4px solid #a3201a;
+  color: #8a1c16;
+}
+
+.tray-why {
+  display: flex;
+  align-items: center;
+  margin: 0;
+  padding: 15px 18px;
+  background: t.$surface;
+  border: 1px solid t.$border;
+  border-radius: 6px;
+  font-size: 13px;
+  color: t.$ink-muted;
+}
+
+// ------------------------------------------------- panels
+
+.panel {
+  background: t.$surface;
+  border: 1px solid t.$border;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.panel-pad {
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.panel-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  padding: 13px 18px;
+  border-bottom: 1px solid t.$border-light;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: t.$ink-muted;
+}
+
+.panel-head-bad { color: #a3201a; }
+
+.panel-count {
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: t.$ink-muted;
+}
+
+.panel-kicker {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: t.$ink-muted;
+}
+
+// ------------------------------------------------- rows
+
+.rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.rows li + li .row {
+  border-top: 1px solid t.$border-light;
+}
+
+.row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 15px 18px;
+  border: 0;
+  border-left: 4px solid transparent;
+  background: t.$surface;
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    background: t.$surface-sunk;
+  }
+
+  &.is-current {
+    background: t.$primary-tint;
+    border-left-color: t.$primary;
+  }
+}
+
+.row-static {
+  cursor: default;
+
+  &:hover { background: t.$surface; }
+}
+
+.row-main {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.row-number {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.row-sub {
+  font-size: 12px;
+  color: t.$ink-muted;
+}
+
+.row-money {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+}
+
+.row-amount {
+  font-size: 19px;
+  font-weight: 600;
+}
+
+.row-surcharge {
+  font-size: 11px;
+  color: t.$ink-muted;
+}
+
+// ------------------------------------------------- held
+
+.tray-held {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0;
+  padding: 15px 18px;
+  background: t.$surface;
+  border: 1px solid t.$border;
+  border-radius: 6px;
+  font-size: 13px;
+  color: t.$ink-muted;
+  flex-wrap: wrap;
+}
+
+.tray-held-figure {
+  font-size: 19px;
+  font-weight: 600;
+  color: t.$ink;
+}
+
+.tray-held-note {
+  margin-left: auto;
+  font-size: 12px;
+}
+
+// ------------------------------------------------- picking one up
+
+.pickup-number {
+  margin: 0;
+  font-family: t.$mono;
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.pickup-what {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: -6px 0 0;
+  flex-wrap: wrap;
+}
+
+.pickup-operator {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.pickup-sub {
+  font-size: 13px;
+  color: t.$ink-muted;
+}
+
+.pickup-note {
+  margin: 0;
+  padding: 12px 15px;
+  border-radius: 4px;
+  background: #f2f7f4;
+  border: 1px solid #cbe2d5;
+  font-size: 12px;
+  color: #19653a;
+}
+
+.pickup-empty {
+  margin: 0;
+  font-size: 13px;
+  color: t.$ink-faint;
+}
+
+// ------------------------------------------------- the two answers
+
+.answer-heading {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.answer {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  border-radius: 5px;
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: progress;
+  }
+}
+
+.answer-yes {
+  border: 0;
+  background: #19653a;
+  color: #ffffff;
+}
+
+.answer-no {
+  border: 1px solid #a3201a;
+  background: t.$surface;
+  color: #a3201a;
+}
+
+.answer-main {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.answer-title {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.answer-sub {
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+.route-switch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 13px;
+  border: 1px solid t.$border-light;
+  border-radius: 4px;
+  background: t.$surface-sunk;
+  flex-wrap: wrap;
+
+  label {
+    flex-grow: 1;
+    font-size: 13px;
+    color: t.$ink-muted;
+  }
+
+  select {
+    height: 32px;
+    padding: 0 8px;
+    border: 1px solid t.$border;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 13px;
+    background: t.$surface;
+    color: t.$ink;
+  }
+}
+
+// ------------------------------------------------- bits shared with the counter
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+
+  > label {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: t.$ink-muted;
+  }
+}
+
+.optional {
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: t.$ink-faint;
+}
+
+.pay-input {
+  height: 42px;
+  box-sizing: border-box;
+  padding: 0 13px;
+  border: 1px solid t.$border;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 15px;
+  background: t.$surface;
+  color: t.$ink;
+}
+
+.keycap {
+  font-family: t.$mono;
+  font-size: 11px;
+  color: t.$ink-muted;
+}
+
+.keycap-on-dark {
+  color: inherit;
+  opacity: 0.85;
+  font-size: 13px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  font-family: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
+
+.btn-dark {
+  height: 44px;
+  padding: 0 24px;
+  background: t.$ink;
+  color: #ffffff;
+  font-size: 15px;
+}
+
+.btn-small {
+  height: 34px;
+  padding: 0 14px;
+  border-color: t.$border;
+  background: t.$surface;
+  color: t.$ink;
+  font-size: 13px;
+}
+
+.entry-error {
+  margin: 0;
+  padding: 10px 13px;
+  border-radius: 4px;
+  border: 1px solid #e0b4b0;
+  background: #fdf6f5;
+  font-size: 13px;
+  color: #8a1c16;
+}

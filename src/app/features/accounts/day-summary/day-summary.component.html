@@ -1,0 +1,127 @@
+<!-- The recharge half of artboard 9: what the books expect the till to hold. -->
+
+<section class="day" aria-labelledby="day-heading">
+
+  <header class="day-head">
+    <h2 id="day-heading" class="day-title">Recharge — what the books say</h2>
+    <div class="day-date">
+      <label for="day-date">Day</label>
+      <input id="day-date" type="date" [(ngModel)]="date" (change)="load()">
+    </div>
+  </header>
+
+  <p *ngIf="loadError" class="day-fault" role="alert">
+    {{ loadError }}
+    <button type="button" class="btn btn-small" (click)="load()">Try again</button>
+  </p>
+
+  <p *ngIf="loading" class="day-loading">Reading the day…</p>
+
+  <ng-container *ngIf="!loading && !loadError && summary as day">
+
+    <!-- The gate's figure, and the two terms it is made of. -->
+    <div class="figures">
+      <div class="figure figure-lead">
+        <p class="figure-label">The books expect the till to hold</p>
+        <p class="mono figure-value">₹{{ booksExpect | number: '1.2-2' }}</p>
+        <p class="figure-sum mono">
+          ₹{{ day.totalTakings | number: '1.2-2' }} takings
+          + ₹{{ day.heldPending | number: '1.2-2' }} held
+        </p>
+      </div>
+
+      <div class="figure">
+        <p class="figure-label">Takings — done only</p>
+        <p class="mono figure-value">₹{{ day.totalTakings | number: '1.2-2' }}</p>
+        <p class="figure-note">Completed recharges. A failure is not in here.</p>
+      </div>
+
+      <!-- Kept separate on purpose: 60% of DTH margin, and the only check on the rate card. -->
+      <div class="figure">
+        <p class="figure-label">Our charges</p>
+        <p class="mono figure-value">₹{{ day.totalSurcharge | number: '1.2-2' }}</p>
+        <p class="figure-note">Reported on its own, never folded into takings.</p>
+      </div>
+    </div>
+
+    <!-- ⚠ "held", never "mismatch". The money is held, not missing. -->
+    <p *ngIf="hasHeldMoney" class="held-warn" role="status">
+      <strong class="mono">₹{{ day.heldPending | number: '1.2-2' }}</strong> held against
+      {{ unresolvedCount }} unresolved
+      {{ unresolvedCount === 1 ? 'recharge' : 'recharges' }}<span *ngIf="awaitingCount">
+        and {{ awaitingCount }} still waiting to be done</span>.
+      That money is in the till and belongs to the customer until the recharge is finished or
+      given back — so the till running above takings by this much is right, not a shortfall.
+    </p>
+
+    <p *ngIf="!hasHeldMoney" class="held-clear" role="status">
+      Nothing held. Every recharge taken today has been finished, so the till should match
+      takings exactly.
+    </p>
+
+    <!-- Not every rupee of takings was ever in the drawer. -->
+    <div class="tender">
+      <p class="tender-head">How it arrived</p>
+      <ul class="tender-list">
+        <li *ngFor="let entry of tenderMix">
+          <span class="tender-label">{{ entry.label }}</span>
+          <span class="mono tender-value">₹{{ entry.amount | number: '1.2-2' }}</span>
+        </li>
+        <li *ngIf="!tenderMix.length" class="tender-none">Nothing taken yet today.</li>
+      </ul>
+      <p *ngIf="nonCashTaken > 0" class="tender-note">
+        <span class="mono">₹{{ nonCashTaken | number: '1.2-2' }}</span> of that never reached
+        the drawer — UPI lands in the bank and credit is still owed. Allow for it before
+        comparing the count.
+      </p>
+    </div>
+
+    <!-- Takings by operator and route, which is what makes a gap attributable. -->
+    <div class="takings" *ngIf="takings.length">
+      <p class="takings-head">Where the takings came from</p>
+      <table class="table">
+        <caption class="visually-hidden">
+          Completed recharges on {{ day.date | date: 'd MMM yyyy' }}, by operator and route
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">Operator</th>
+            <th scope="col">Connection</th>
+            <th scope="col" class="num">Count</th>
+            <th scope="col" class="num">Amount</th>
+            <th scope="col" class="num">Our charge</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of takings; trackBy: trackByRow">
+            <td>{{ row.operatorCode }}</td>
+            <td>{{ row.routeCode }}</td>
+            <td class="num mono">{{ row.count }}</td>
+            <td class="num mono">{{ row.amount | number: '1.2-2' }}</td>
+            <td class="num mono">{{ row.surcharge ? (row.surcharge | number: '1.2-2') : '—' }}</td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr>
+            <th scope="row" colspan="3">Total</th>
+            <td class="num mono">{{ day.totalTakings | number: '1.2-2' }}</td>
+            <td class="num mono">{{ day.totalSurcharge | number: '1.2-2' }}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <p *ngIf="!takings.length" class="takings-none">
+      No completed recharges on this day.
+    </p>
+  </ng-container>
+
+  <!-- ⚠ The other half of artboard 9 has no endpoints in this slice. -->
+  <p class="day-gap">
+    <span class="day-gap-label">Not here yet</span>
+    <span>Counting the till, naming the difference, the sweep to the safe and closing the day
+      all need the ledger close endpoints, which this slice did not build — and ticket's line
+      of “the books say” needs a ticket module. Until then this panel is for reading against
+      a hand count, and nothing on this screen seals anything.</span>
+  </p>
+</section>

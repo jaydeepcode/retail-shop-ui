@@ -288,25 +288,43 @@ export interface DaySummaryResponse {
   /** Reported separately and kept separate: 60% of DTH margin (§14.10). */
   totalSurcharge: number;
   /**
-   * `totalTakings + totalSurcharge` — what the customer actually handed over for the
-   * completed recharges.
+   * `totalTakings + totalSurcharge` — what the customer handed over for the recharges
+   * COMPLETED today. The day's recognised income.
    *
-   * ⚠ THIS IS THE TERM THE DRAWER RECONCILES AGAINST:
-   *
-   *     drawer  =  totalCollected  +  heldPending
-   *
-   * The server sends it precomputed so there is no arithmetic to get wrong, and it was
-   * added because this screen got it wrong: it summed `totalTakings + heldPending`, which
-   * balances only on a day with no DTH sale. A ₹240 Dish TV recharge with the ₹10 fee puts
-   * ₹250 in the drawer while `totalTakings` reports ₹240, so the panel under-stated what
-   * the books expect by ₹10 per DTH recharge — every day.
+   * ⚠ NOT the till figure. See `cashCollectedToday`.
    */
   totalCollected: number;
+  /**
+   * The day's net movement on `CASH_RECHARGE`, read from the ledger.
+   *
+   * ⚠ THIS IS WHAT THE TILL RECONCILES AGAINST, and it should equal
+   * `tenderMix.CASH` — two independent readings of the same number, one from the
+   * ledger and one from today's tender rows. If they disagree, a posting is wrong.
+   *
+   * It replaces two earlier formulas, both of which this screen shipped or nearly did:
+   *
+   *   1. `totalTakings + heldPending` omitted our own charge, so it was ₹10 short per
+   *      DTH recharge.
+   *   2. `totalCollected + heldPending` fixed that and was still wrong twice over —
+   *      `heldPending` has no date filter, so an overnight unresolved sale corrupts every
+   *      later day, and it counts UPI and credit settlements that never touched the till.
+   *
+   * Both balanced only for same-day, all-cash baskets, which was the shape of every
+   * fixture. There is no addition left here to get wrong.
+   */
+  cashCollectedToday: number;
   /** Keys are absent when zero, so a missing `UPI` means none was taken. */
   tenderMix: Partial<Record<SettlementMethod, number>>;
   awaitingCount: number;
   unresolvedFailureCount: number;
-  /** The `RCHG_PENDING` balance, so it reconciles rather than merely displays. */
+  /**
+   * The `RCHG_PENDING` balance: ALL-TIME and ALL-TENDER open exposure.
+   *
+   * ⚠ Not a term in the till equation. It keeps money from recharges left unresolved on
+   * earlier days, and it includes UPI and credit settlements that never reached the
+   * drawer. It EXPLAINS why takings sit below cash collected; it does not balance against
+   * the till.
+   */
   heldPending: number;
 }
 

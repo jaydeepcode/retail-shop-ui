@@ -25,22 +25,26 @@
         <p class="figure-label">The books expect the till to hold</p>
         <p class="mono figure-value">₹{{ booksExpect | number: '1.2-2' }}</p>
         <!--
-          ⚠ Three terms, not two. Takings exclude our own charge, so "takings + held"
-          under-states the till by the surcharge — which is what this line used to say.
-          Spelling all three out means the staff member can see where the figure comes from
-          while they are standing at the drawer.
+          ⚠ NOT A SUM ANY MORE. Every arithmetic form of this figure was wrong: "takings +
+          held" omitted our own charge, and "collected + held" counted money from earlier
+          days and from UPI and credit sales that never reached the till. It is now read
+          straight from the ledger's cash movement for the day, and the line below says
+          where it came from rather than how it was added up.
         -->
-        <p class="figure-sum mono">
-          ₹{{ day.totalTakings | number: '1.2-2' }} takings
-          + ₹{{ day.totalSurcharge | number: '1.2-2' }} our charges
-          + ₹{{ day.heldPending | number: '1.2-2' }} held
+        <p class="figure-sum mono">cash taken for recharge today, from the ledger</p>
+        <p *ngIf="!tillSourcesAgree" class="figure-warn" role="alert">
+          ⚠ The ledger and today's payment lines disagree about the cash taken. That means a
+          posting is wrong, not a miscount — do not reconcile against this figure.
         </p>
       </div>
 
       <div class="figure">
-        <p class="figure-label">Takings — done only</p>
-        <p class="mono figure-value">₹{{ day.totalTakings | number: '1.2-2' }}</p>
-        <p class="figure-note">Completed recharges. A failure is not in here.</p>
+        <p class="figure-label">Recognised today</p>
+        <p class="mono figure-value">₹{{ day.totalCollected | number: '1.2-2' }}</p>
+        <p class="figure-note">
+          ₹{{ day.totalTakings | number: '1.2-2' }} takings + ₹{{ day.totalSurcharge | number: '1.2-2' }}
+          our charges, on completed recharges only. A failure is not in here.
+        </p>
       </div>
 
       <!-- Kept separate on purpose: 60% of DTH margin, and the only check on the rate card. -->

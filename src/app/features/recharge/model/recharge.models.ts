@@ -279,10 +279,29 @@ export interface HistoryPageResponse {
 export interface DaySummaryResponse {
   date: string;
   takings: TakingsRow[];
-  /** COMPLETED only, which is why the drawer exceeds it whenever something is held. */
+  /**
+   * The recharge FACE VALUE of completed recharges, which EXCLUDES our own charge.
+   *
+   * ⚠ Never compare the drawer against this. See `totalCollected`.
+   */
   totalTakings: number;
   /** Reported separately and kept separate: 60% of DTH margin (§14.10). */
   totalSurcharge: number;
+  /**
+   * `totalTakings + totalSurcharge` — what the customer actually handed over for the
+   * completed recharges.
+   *
+   * ⚠ THIS IS THE TERM THE DRAWER RECONCILES AGAINST:
+   *
+   *     drawer  =  totalCollected  +  heldPending
+   *
+   * The server sends it precomputed so there is no arithmetic to get wrong, and it was
+   * added because this screen got it wrong: it summed `totalTakings + heldPending`, which
+   * balances only on a day with no DTH sale. A ₹240 Dish TV recharge with the ₹10 fee puts
+   * ₹250 in the drawer while `totalTakings` reports ₹240, so the panel under-stated what
+   * the books expect by ₹10 per DTH recharge — every day.
+   */
+  totalCollected: number;
   /** Keys are absent when zero, so a missing `UPI` means none was taken. */
   tenderMix: Partial<Record<SettlementMethod, number>>;
   awaitingCount: number;

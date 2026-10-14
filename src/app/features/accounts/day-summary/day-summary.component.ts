@@ -18,17 +18,31 @@ import { errorSentence } from '../../recharge/services/recharge-error';
  *
  * The identity, which the backend asserts:
  *
- *     drawer  =  totalTakings  +  heldPending
+ *     drawer  =  totalCollected  +  heldPending        (totalCollected = takings + surcharge)
  *
- * `totalTakings` counts COMPLETED rows only, so the till will NOT equal takings whenever
- * a recharge has failed and has not been refunded. ⚠ That is correct — the money is held,
- * not missing. `heldPending` is the `RCHG_PENDING` account balance, so the second term
+ * ⚠ CORRECTED. This panel first summed `totalTakings + heldPending`, which is what the
+ * handoff note and the backend's own PR both said at the time. It balances only on a day
+ * with no DTH sale: `totalTakings` is the recharge FACE VALUE and excludes our own charge,
+ * which is deliberately its own income line (log §10.2, §15.11). So a ₹240 Dish TV recharge
+ * with the ₹10 fee puts ₹250 in the drawer while takings report ₹240, and this screen
+ * under-stated what the books expect by ₹10 per DTH recharge — every day, on the one figure
+ * the whole slice's gate is meant to make easy to compare. FY2026-27 carried ₹2,957 of
+ * surcharge.
+ *
+ * It was caught by driving one real sale through a running backend. The fix is the server's
+ * `totalCollected`, which arrives precomputed so there is no arithmetic here to get wrong.
+ *
+ * `totalTakings` counts COMPLETED rows only, so the till will NOT equal collected-plus-held
+ * whenever a recharge has failed and has not been refunded. ⚠ That is correct — the money is
+ * held, not missing. `heldPending` is the `RCHG_PENDING` account balance, so the second term
  * reconciles rather than merely displays. The warning therefore reads "₹X held against N
  * unresolved recharges" and must NEVER read "till mismatch".
  *
- * `totalSurcharge` is reported separately and stays separate: it is 60% of DTH margin
- * (FY2026-27 ₹2,957 surcharge against ₹2,009 operator commission), and folding it into
- * takings would destroy the only check there is on the operator-paid rate.
+ * `totalSurcharge` stays reported on its own as well: it is 60% of DTH margin (FY2026-27
+ * ₹2,957 surcharge against ₹2,009 operator commission), and folding it into takings would
+ * destroy the only check there is on the operator-paid rate. Being part of `totalCollected`
+ * and being shown separately are not in tension — the first is what the drawer holds, the
+ * second is where the margin came from.
  *
  * ⚠ WHAT IS NOT HERE, and why. Artboard 9 also draws the count input, the difference, the
  * four "can you say why" reasons, the sweep to the safe, "Close the drawer for today", the
@@ -87,15 +101,21 @@ export class DaySummaryComponent implements OnInit, OnDestroy {
   /**
    * What the books expect the recharge till to hold: the gate's left-hand figure.
    *
-   * Summed from the two terms the server sends rather than invented — neither term is
-   * recomputed, and the sum is the identity the backend already asserts.
+   * ⚠ `totalCollected`, NOT `totalTakings`. Takings exclude our own charge, so summing them
+   * with held money under-states the till by the surcharge — see the class comment for what
+   * that cost. Both terms arrive from the server and neither is recomputed here.
+   *
+   * Paise are summed as integers because adding two JSON floats is how 250.00 becomes
+   * 249.99999999999997 on a figure someone is about to compare against a drawer by hand.
    */
   get booksExpect(): number {
     if (!this.summary) {
       return 0;
     }
     return (
-      (Math.round(this.summary.totalTakings * 100) + Math.round(this.summary.heldPending * 100)) / 100
+      (Math.round(this.summary.totalCollected * 100) +
+        Math.round(this.summary.heldPending * 100)) /
+      100
     );
   }
 

@@ -15,7 +15,13 @@ function summary(overrides: Partial<DaySummaryResponse> = {}): DaySummaryRespons
     ],
     totalTakings: 3522,
     totalSurcharge: 40,
-    tenderMix: { CASH: 3104, UPI: 418 },
+    // 3522 + 40. Sent precomputed by the server so no client sums it wrongly.
+    totalCollected: 3562,
+    // ⚠ The tender mix MUST satisfy the identity, or a fixture cannot catch an
+    // identity bug — and the first version of this fixture did not: it summed to
+    // 3522, the takings, so `takings + held` and `collected + held` were both
+    // "wrong" against it and neither showed up. 3891 + 418 = 4309 = 3562 + 747.
+    tenderMix: { CASH: 3891, UPI: 418 },
     awaitingCount: 1,
     unresolvedFailureCount: 1,
     heldPending: 747,
@@ -55,12 +61,59 @@ describe('DaySummaryComponent', () => {
   }
 
   /** The identity the backend asserts and the gate compares against the drawer. */
-  it('shows takings plus held as what the books expect the till to hold', () => {
+  it('shows collected plus held as what the books expect the till to hold', () => {
     respond(summary());
-    expect(day.booksExpect).toBe(4269);
+    // 3562 collected + 747 held. NOT 3522 takings + 747, which was 4269.
+    expect(day.booksExpect).toBe(4309);
     const text = fixture.nativeElement.textContent as string;
     expect(text).toContain('The books expect the till to hold');
-    expect(text).toContain('4,269.00');
+    expect(text).toContain('4,309.00');
+  });
+
+  /**
+   * ⚠ THE REGRESSION THIS SCREEN ALREADY HAD.
+   *
+   * It summed `totalTakings + heldPending`, which is what the handoff note and the
+   * backend's PR both said at the time. Takings are the recharge FACE VALUE and exclude
+   * our own charge, so on any day carrying a DTH sale the panel under-stated the till by
+   * the surcharge — ₹10 per DTH recharge, on the one figure the slice's gate exists to
+   * compare. Caught by driving a real sale through a running backend, not by a test.
+   *
+   * Asserted as an inequality so restoring the old formula fails here.
+   */
+  it('does NOT use takings + held, which omits our own charge', () => {
+    respond(summary());
+    const wrong = 3522 + 747;
+    expect(day.booksExpect).not.toBe(wrong);
+    expect(day.booksExpect - wrong).toBe(40);
+  });
+
+  /**
+   * The identity itself, checked against the tender mix — the shape of assertion that
+   * found the bug on the backend. If the books and the drawer disagree in a fixture where
+   * nothing is missing, the formula is wrong.
+   */
+  it('reconciles against the drawer: collected + held equals what was tendered', () => {
+    respond(summary());
+    const drawer = Object.values(day.summary!.tenderMix).reduce((a, b) => a + (b ?? 0), 0);
+    expect(day.booksExpect).toBe(drawer);
+  });
+
+  /** And it still holds with no surcharge at all, which is the mobile-only day. */
+  it('reconciles on a day with no surcharge', () => {
+    respond(
+      summary({
+        takings: [
+          { operatorCode: 'JIO', routeCode: 'DIRECT', count: 7, amount: 2093, surcharge: 0 }
+        ],
+        totalTakings: 2093,
+        totalSurcharge: 0,
+        totalCollected: 2093,
+        tenderMix: { CASH: 2840 },
+        heldPending: 747
+      })
+    );
+    expect(day.booksExpect).toBe(2840);
   });
 
   /**
@@ -131,7 +184,7 @@ describe('DaySummaryComponent', () => {
   });
 
   it('handles a day with no completed recharges', () => {
-    respond(summary({ takings: [], totalTakings: 0, totalSurcharge: 0, tenderMix: {} }));
+    respond(summary({ takings: [], totalTakings: 0, totalSurcharge: 0, totalCollected: 0, tenderMix: {} }));
     expect(fixture.nativeElement.textContent).toContain('No completed recharges on this day');
   });
 });

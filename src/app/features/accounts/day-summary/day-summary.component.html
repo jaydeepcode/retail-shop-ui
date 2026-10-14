@@ -24,8 +24,15 @@
       <div class="figure figure-lead">
         <p class="figure-label">The books expect the till to hold</p>
         <p class="mono figure-value">₹{{ booksExpect | number: '1.2-2' }}</p>
+        <!--
+          ⚠ Three terms, not two. Takings exclude our own charge, so "takings + held"
+          under-states the till by the surcharge — which is what this line used to say.
+          Spelling all three out means the staff member can see where the figure comes from
+          while they are standing at the drawer.
+        -->
         <p class="figure-sum mono">
           ₹{{ day.totalTakings | number: '1.2-2' }} takings
+          + ₹{{ day.totalSurcharge | number: '1.2-2' }} our charges
           + ₹{{ day.heldPending | number: '1.2-2' }} held
         </p>
       </div>

@@ -10,6 +10,7 @@ import {
   RechargeWorkItemResponse
 } from '../model/recharge.models';
 import { WorklistComponent } from './worklist.component';
+import { NumberGroupsPipe } from '../number-groups.pipe';
 
 const CONFIG: CounterConfigResponse = {
   operators: [
@@ -58,7 +59,7 @@ describe('WorklistComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [HttpClientTestingModule, FormsModule, RouterTestingModule, SectionChromeModule],
-      declarations: [WorklistComponent]
+      declarations: [WorklistComponent, NumberGroupsPipe]
     }).compileComponents();
 
     fixture = TestBed.createComponent(WorklistComponent);

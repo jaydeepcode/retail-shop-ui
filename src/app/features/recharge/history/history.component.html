@@ -93,9 +93,10 @@
             <span class="when-time">{{ row.rechargeAt | date: 'HH:mm' }}</span>
           </td>
           <td>
-            <span class="mono did" [class.struck]="row.status === 'VOIDED'">
-              {{ row.number }} · {{ row.operatorName }} ₹{{ row.amount }}
-            </span>
+            <span class="mono did" [class.struck]="row.status === 'VOIDED'"><span
+              [attr.aria-label]="row.number"><span
+              *ngFor="let group of row.number | numberGroups: row.serviceType"
+              class="digit-group">{{ group }}</span></span> · {{ row.operatorName }} ₹{{ row.amount }}</span>
             <span class="did-sub">
               via {{ row.routeName }}<span *ngIf="!row.routeConfirmed"> — not confirmed yet</span>
             </span>

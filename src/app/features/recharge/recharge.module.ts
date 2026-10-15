@@ -6,6 +6,7 @@ import { SectionPlaceholderComponent } from '../shared/section-placeholder/secti
 import { CounterComponent } from './counter/counter.component';
 import { FailureComponent } from './failure/failure.component';
 import { HistoryComponent } from './history/history.component';
+import { NumberGroupsPipe } from './number-groups.pipe';
 import { RechargeShellComponent } from './recharge-shell/recharge-shell.component';
 import { WorklistComponent } from './worklist/worklist.component';
 
@@ -76,7 +77,8 @@ const routes: Routes = [
     CounterComponent,
     WorklistComponent,
     FailureComponent,
-    HistoryComponent
+    HistoryComponent,
+    NumberGroupsPipe
   ]
 })
 export class RechargeModule {}

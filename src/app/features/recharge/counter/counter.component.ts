@@ -194,6 +194,16 @@ export class CounterComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.subscriptions.unsubscribe();
+    this.clearCopyState();
+  }
+
+  private clearCopyState(): void {
+    this.copied = false;
+    this.copyFailed = false;
+    if (this.copyResetTimer) {
+      clearTimeout(this.copyResetTimer);
+      this.copyResetTimer = null;
+    }
   }
 
   // =========================================================================
@@ -870,6 +880,7 @@ export class CounterComponent implements OnInit, OnDestroy {
     this.answered.push(answered);
     this.vendorRef = '';
     this.routeOverride = '';
+    this.clearCopyState();
 
     // One at a time: three recharges mean three calls and three outcomes. There is
     // deliberately no complete-all, because recharge 3 failing would roll back 1 and 2.
@@ -878,6 +889,62 @@ export class CounterComponent implements OnInit, OnDestroy {
       return;
     }
     this.startFresh();
+  }
+
+  /**
+   * Copying the number, because retyping it is where a wrong recharge comes from.
+   *
+   * ⚠ `navigator.clipboard` is undefined outside a secure context, and this app is quite
+   * likely to be opened from another machine on the shop LAN over plain HTTP rather than
+   * on localhost. So there is a fallback rather than a button that silently does nothing
+   * on the one machine that matters.
+   */
+  copied = false;
+  copyFailed = false;
+  private copyResetTimer: ReturnType<typeof setTimeout> | null = null;
+
+  async copyNumber(): Promise<void> {
+    const current = this.current;
+    if (!current) {
+      return;
+    }
+    // Always the plain digits: never what is on screen, which carries the 4-3-3 gaps.
+    const ok = await this.writeToClipboard(current.number);
+    this.copied = ok;
+    this.copyFailed = !ok;
+    if (this.copyResetTimer) {
+      clearTimeout(this.copyResetTimer);
+    }
+    this.copyResetTimer = setTimeout(() => {
+      this.copied = false;
+      this.copyFailed = false;
+      this.copyResetTimer = null;
+    }, 2500);
+  }
+
+  private async writeToClipboard(text: string): Promise<boolean> {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch {
+      // Fall through to the older path rather than giving up.
+    }
+    try {
+      const scratch = document.createElement('textarea');
+      scratch.value = text;
+      scratch.setAttribute('readonly', '');
+      scratch.style.position = 'fixed';
+      scratch.style.opacity = '0';
+      document.body.appendChild(scratch);
+      scratch.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(scratch);
+      return ok;
+    } catch {
+      return false;
+    }
   }
 
   /** Esc — someone else is waiting. What is left moves to the worklist untouched. */
@@ -905,6 +972,7 @@ export class CounterComponent implements OnInit, OnDestroy {
     this.answerError = '';
     this.clearHint();
     this.clearConnection();
+    this.clearCopyState();
     this.tvMode = 'search';
     this.resetSurchargeToDefault();
     setTimeout(() => this.focusFirstField());

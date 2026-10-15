@@ -1049,3 +1049,46 @@ select {
   color: #8a1c16;
   white-space: nowrap;
 }
+
+// ---------------------------------------------------------------- grouped digits
+
+// Adjacent spans with a margin, never spaces: the gap is visual only, so selecting the
+// number still copies 9430043541 — which is what the operator's app will accept.
+.digit-group + .digit-group {
+  margin-left: 0.34em;
+}
+
+.held-number-row {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.copy-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid t.$bar-rule;
+  border-radius: 4px;
+  background: transparent;
+  color: t.$bar-text;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    border-color: t.$bar-text;
+    color: #ffffff;
+  }
+}
+
+.copy-failed {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: #e3a857;
+}

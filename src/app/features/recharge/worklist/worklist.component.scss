@@ -463,3 +463,8 @@
   font-size: 13px;
   color: #8a1c16;
 }
+
+// Visual gap only — the number still copies as one unbroken run of digits.
+.digit-group + .digit-group {
+  margin-left: 0.34em;
+}

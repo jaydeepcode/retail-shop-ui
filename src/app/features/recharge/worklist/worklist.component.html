@@ -38,7 +38,9 @@
                   [attr.aria-pressed]="selected?.rechargeId === row.rechargeId"
                   (click)="select(row)">
             <span class="row-main">
-              <span class="mono row-number">{{ row.number }}</span>
+              <span class="mono row-number" [attr.aria-label]="row.number"><span
+                *ngFor="let group of row.number | numberGroups: row.serviceType"
+                class="digit-group">{{ group }}</span></span>
               <span class="row-sub">
                 {{ row.operatorName }} · money taken {{ row.rechargeAt | date: 'HH:mm' }}
               </span>
@@ -64,7 +66,9 @@
         <li *ngFor="let row of failures; trackBy: trackById">
           <div class="row row-static">
             <span class="row-main">
-              <span class="mono row-number">{{ row.number }}</span>
+              <span class="mono row-number" [attr.aria-label]="row.number"><span
+                *ngFor="let group of row.number | numberGroups: row.serviceType"
+                class="digit-group">{{ group }}</span></span>
               <span class="row-sub">
                 {{ row.operatorName }} · failed {{ row.rechargeAt | date: 'HH:mm' }}<span
                 *ngIf="row.failureReason"> · “{{ row.failureReason }}”</span>
@@ -93,7 +97,9 @@
   <div class="tray-side">
     <section *ngIf="selected as row" class="panel panel-pad" aria-labelledby="pickup-heading">
       <h2 id="pickup-heading" class="panel-kicker">Picking this one up again</h2>
-      <p class="mono pickup-number">{{ row.number }}</p>
+      <p class="mono pickup-number" [attr.aria-label]="row.number"><span
+        *ngFor="let group of row.number | numberGroups: row.serviceType"
+        class="digit-group">{{ group }}</span></p>
       <p class="pickup-what">
         <span class="pickup-operator">{{ row.operatorName }}</span>
         <span class="pickup-sub">

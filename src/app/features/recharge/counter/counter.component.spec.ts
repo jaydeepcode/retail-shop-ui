@@ -6,6 +6,7 @@ import { SectionChromeModule } from '../../shared/section-chrome.module';
 import { environment } from '../../../../environments/environment';
 import { CounterConfigResponse, TransactionResponse } from '../model/recharge.models';
 import { CounterComponent } from './counter.component';
+import { NumberGroupsPipe } from '../number-groups.pipe';
 
 const CONFIG: CounterConfigResponse = {
   operators: [
@@ -96,6 +97,20 @@ function transaction(overrides: Partial<TransactionResponse> = {}): TransactionR
 }
 
 describe('CounterComponent', () => {
+  const realClipboard = Object.getOwnPropertyDescriptor(Navigator.prototype, 'clipboard');
+
+  /** Replace `navigator.clipboard`, which is a getter-only property. */
+  function withClipboard(value: unknown): void {
+    Object.defineProperty(navigator, 'clipboard', { value, configurable: true, writable: true });
+  }
+
+  afterEach(() => {
+    delete (navigator as unknown as Record<string, unknown>)['clipboard'];
+    if (realClipboard) {
+      Object.defineProperty(Navigator.prototype, 'clipboard', realClipboard);
+    }
+  });
+
   let fixture: ComponentFixture<CounterComponent>;
   let counter: CounterComponent;
   let http: HttpTestingController;
@@ -104,7 +119,7 @@ describe('CounterComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [HttpClientTestingModule, FormsModule, RouterTestingModule, SectionChromeModule],
-      declarations: [CounterComponent]
+      declarations: [CounterComponent, NumberGroupsPipe]
     }).compileComponents();
 
     fixture = TestBed.createComponent(CounterComponent);
@@ -533,6 +548,89 @@ describe('CounterComponent', () => {
     expect(counter.leftToAllocate).toBe(0);
     expect(counter.canTakePayment).toBe(false);
     expect(fixture.nativeElement.textContent).toContain('less than the');
+  });
+
+  // ------------------------------------------------- the number staff have to retype
+
+  function settleAndWait() {
+    addJioLine();
+    counter.takePayment();
+    http.expectOne(`${base}/transactions`).flush(transaction());
+    fixture.detectChanges();
+  }
+
+  it('groups the waiting number 4-3-3 so it can be read off', () => {
+    settleAndWait();
+    const groups = Array.from(fixture.nativeElement.querySelectorAll('.held-number .digit-group'))
+      .map((g) => (g as HTMLElement).textContent);
+    expect(groups).toEqual(['9823', '014', '772']);
+  });
+
+  /**
+   * ⚠ THE POINT OF THE SPANS. The gaps are CSS, not spaces, so selecting the number and
+   * pasting it into the operator's app yields the digits the server holds. A literal
+   * space here would paste "9823 014 772", which some operator apps refuse.
+   */
+  it('still reads as one unbroken run of digits, so it pastes cleanly', () => {
+    settleAndWait();
+    const shown = fixture.nativeElement.querySelector('.held-number') as HTMLElement;
+    expect(shown.textContent).toBe('9823014772');
+    // And a screen reader gets the plain digits, not three separate numbers.
+    expect(shown.getAttribute('aria-label')).toBe('9823014772');
+  });
+
+  it('copies the plain digits, never what is on screen', async () => {
+    settleAndWait();
+    let copiedText = '';
+    // `navigator.clipboard` is getter-only, so it is redefined rather than assigned.
+    withClipboard({ writeText: (text: string) => { copiedText = text; return Promise.resolve(); } });
+    await counter.copyNumber();
+    fixture.detectChanges();
+
+    expect(copiedText).toBe('9823014772');
+    expect(counter.copied).toBe(true);
+    expect(fixture.nativeElement.textContent).toContain('Copied');
+  });
+
+  it('says so rather than silently failing when the clipboard is unavailable', async () => {
+    settleAndWait();
+    // What a page served over plain HTTP from the shop LAN actually sees.
+    withClipboard(undefined);
+    spyOn(document, 'execCommand').and.returnValue(false);
+    await counter.copyNumber();
+    fixture.detectChanges();
+
+    expect(counter.copied).toBe(false);
+    expect(counter.copyFailed).toBe(true);
+    expect(fixture.nativeElement.textContent).toContain('Could not copy');
+  });
+
+  it('the copy button names the number it copies', () => {
+    settleAndWait();
+    const button = fixture.nativeElement.querySelector('.copy-button') as HTMLElement;
+    expect(button.getAttribute('aria-label')).toBe('Copy the number 9823014772');
+  });
+
+  it('groups the basket strip the same way', () => {
+    addJioLine();
+    fixture.detectChanges();
+    const groups = Array.from(fixture.nativeElement.querySelectorAll('.basket-number .digit-group'))
+      .map((g) => (g as HTMLElement).textContent);
+    expect(groups).toEqual(['9823', '014', '772']);
+    expect((fixture.nativeElement.querySelector('.basket-number') as HTMLElement).textContent)
+      .toBe('9823014772');
+  });
+
+  it('leaves a TV connection number ungrouped in the basket', () => {
+    counter.chooseService('TV');
+    counter.numberText = '02700431198';
+    counter.chooseOperator('DISHTV');
+    counter.amountText = '240';
+    counter.addToBasket();
+    fixture.detectChanges();
+    const groups = fixture.nativeElement.querySelectorAll('.basket-number .digit-group');
+    expect(groups.length).toBe(1);
+    expect((groups[0] as HTMLElement).textContent).toBe('02700431198');
   });
 
   // ---------------------------------------------------------------- credit

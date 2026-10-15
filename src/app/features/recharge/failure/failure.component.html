@@ -26,7 +26,9 @@
         </span>
       </p>
 
-      <h2 id="fail-heading" class="mono fail-number">{{ row.number }}</h2>
+      <h2 id="fail-heading" class="mono fail-number" [attr.aria-label]="row.number"><span
+        *ngFor="let group of row.number | numberGroups: row.serviceType"
+        class="digit-group">{{ group }}</span></h2>
       <p class="fail-what">
         <span class="fail-operator">{{ row.operatorName }}</span>
         <span class="fail-sub">· {{ row.routeCode }}</span>

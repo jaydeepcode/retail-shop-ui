@@ -6,6 +6,7 @@ import { environment } from '../../../../environments/environment';
 import { SectionChromeModule } from '../../shared/section-chrome.module';
 import { CounterConfigResponse, HistoryPageResponse, RechargeResponse } from '../model/recharge.models';
 import { HistoryComponent } from './history.component';
+import { NumberGroupsPipe } from '../number-groups.pipe';
 
 const CONFIG: CounterConfigResponse = {
   operators: [
@@ -69,7 +70,7 @@ describe('HistoryComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [HttpClientTestingModule, FormsModule, RouterTestingModule, SectionChromeModule],
-      declarations: [HistoryComponent]
+      declarations: [HistoryComponent, NumberGroupsPipe]
     }).compileComponents();
 
     fixture = TestBed.createComponent(HistoryComponent);

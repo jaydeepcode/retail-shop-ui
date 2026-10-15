@@ -982,3 +982,53 @@ select {
   font-size: 12px;
   color: t.$ink-muted;
 }
+
+// ---------------------------------------------------------------- credit, continued
+
+.credit-after dd {
+  color: t.$ink;
+}
+
+.credit-advance-note {
+  margin: 0;
+  font-size: 12px;
+  color: #19653a;
+}
+
+.new-customer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 13px;
+  border: 1px dashed t.$border;
+  border-radius: 4px;
+  background: t.$surface;
+}
+
+.new-customer .field > label {
+  font-size: 11px;
+}
+
+.new-customer-dupe {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #e3a857;
+  border-radius: 4px;
+  background: #fff3df;
+  flex-wrap: wrap;
+
+  p {
+    margin: 0;
+    flex-grow: 1;
+    font-size: 12px;
+    color: #6e3c00;
+  }
+}
+
+.new-customer-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}

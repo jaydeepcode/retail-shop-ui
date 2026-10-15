@@ -320,8 +320,57 @@
                 </button>
               </li>
             </ul>
-            <p *ngIf="customerQuery.trim().length >= 2 && !customerSearching && !customerResults.length"
+            <p *ngIf="customerQuery.trim().length >= 2 && !customerSearching && !customerResults.length && !addingCustomer"
                class="field-note">Nobody matches that.</p>
+
+            <!-- A walk-in taking credit has to be named, and 506 customers is not
+                 everyone. Without this, a new customer could only be added by editing
+                 the database. -->
+            <p *ngIf="!addingCustomer" class="field-aside">
+              <button type="button" class="link" (click)="startAddingCustomer()">
+                Not in the book — add them
+              </button>
+            </p>
+
+            <div *ngIf="addingCustomer" class="new-customer">
+              <div class="field">
+                <label for="counter-new-first">First name</label>
+                <input id="counter-new-first" class="pay-input" type="text" autocomplete="off"
+                       [(ngModel)]="newCustomer.firstName">
+              </div>
+              <div class="field">
+                <!-- Not required: 147 of 506 existing rows have no last name, and a
+                     walk-in may give only one. -->
+                <label for="counter-new-last">Last name <span class="optional">— optional</span></label>
+                <input id="counter-new-last" class="pay-input" type="text" autocomplete="off"
+                       [(ngModel)]="newCustomer.lastName">
+              </div>
+              <div class="field">
+                <label for="counter-new-mobile">Mobile</label>
+                <input id="counter-new-mobile" class="pay-input mono" type="text"
+                       inputmode="numeric" autocomplete="off" [(ngModel)]="newCustomer.mobile">
+              </div>
+
+              <!-- The 409 names whoever already holds that mobile, so offer them. -->
+              <div *ngIf="existingCustomer as existing" class="new-customer-dupe">
+                <p>
+                  <b>{{ existing.name }}</b> already has that mobile
+                  (<span class="mono">{{ existing.contactNumber }}</span>).
+                </p>
+                <button type="button" class="btn btn-small" [disabled]="creatingCustomer"
+                        (click)="useExistingCustomer()">Use {{ existing.name }}</button>
+              </div>
+
+              <p *ngIf="createCustomerError" class="entry-error" role="alert">{{ createCustomerError }}</p>
+
+              <div class="new-customer-actions">
+                <button type="button" class="btn btn-dark btn-small" [disabled]="!canCreateCustomer"
+                        (click)="createCustomer()">
+                  {{ creatingCustomer ? 'Saving…' : 'Save and use' }}
+                </button>
+                <button type="button" class="link" (click)="cancelAddingCustomer()">Cancel</button>
+              </div>
+            </div>
           </ng-container>
 
           <ng-container *ngIf="credit.customer as customer">
@@ -344,7 +393,19 @@
                 <dt>Oldest unpaid</dt>
                 <dd class="mono">{{ customer.oldestDebtDays ? customer.oldestDebtDays + ' days' : '—' }}</dd>
               </div>
+              <!-- Artboard 3's third figure, and the one that makes the warning
+                   actionable. Provisional, like the basket total: the response's
+                   `outstandingAfter` replaces it the moment there is a real one. -->
+              <div class="credit-after">
+                <dt>Will owe after this</dt>
+                <dd class="mono">₹{{ willOweAfterThis | number: '1.2-2' }}</dd>
+              </div>
             </dl>
+            <p *ngIf="customer.advanceHeld" class="credit-advance-note">
+              ₹{{ (customer.advanceHeld > creditAmount ? creditAmount : customer.advanceHeld) | number: '1.2-2' }}
+              of this comes off what they already have with us<span *ngIf="advanceLeftAfterThis">,
+              leaving ₹{{ advanceLeftAfterThis | number: '1.2-2' }}</span>.
+            </p>
             <p *ngIf="customer.warn" class="credit-warn">
               This tab is old enough to be worth a word before adding to it.
             </p>

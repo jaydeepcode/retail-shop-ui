@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { ErrorCode, ErrorResponse } from '../model/recharge.models';
+import { CreateCustomerRequestResult, ErrorCode, ErrorResponse } from '../model/recharge.models';
 
 /**
  * Reading `/recharge`'s one error shape (`response/ErrorResponse.java`).
@@ -38,6 +38,25 @@ export function errorCode(error: unknown): ErrorCode | null {
  */
 export function isPossiblyExpiredSession(error: unknown): boolean {
   return error instanceof HttpErrorResponse && error.status === 403 && errorBody(error) === null;
+}
+
+/**
+ * The existing customer a duplicate-mobile 409 names, or `null` when this is not one.
+ *
+ * ⚠ `POST /recharge/customers` answers 409 with a `CreateCustomerRequestResult` — the
+ * customer who already holds that mobile — rather than with the usual `ErrorResponse`.
+ * It is the one response on this surface that breaks the single error shape, and it does
+ * so deliberately: the server has already found the person, so the counter can offer them
+ * instead of making the staff search again.
+ */
+export function asExistingCustomer(error: unknown): CreateCustomerRequestResult | null {
+  if (!(error instanceof HttpErrorResponse) || error.status !== 409) {
+    return null;
+  }
+  const body = error.error as CreateCustomerRequestResult | null;
+  return body && typeof body === 'object' && typeof body.existingCustomerId === 'number'
+    ? body
+    : null;
 }
 
 /**

@@ -259,6 +259,8 @@ describe('CounterComponent', () => {
 
   it('settles with the key it holds and moves to the waiting state', () => {
     addJioLine();
+    // As ngModel writes it: a string from a text input.
+    counter.line('CASH')!.amountTendered = '300';
     const key = (counter as unknown as Record<string, string>)['idempotencyKey'];
     counter.takePayment();
 
@@ -271,6 +273,11 @@ describe('CounterComponent', () => {
       operatorCode: 'JIO',
       amount: 299
     });
+    // ⚠ Numbers on the wire, even though the tender was typed into a text input.
+    expect(request.request.body.settlementLines[0].amount).toBe(299);
+    expect(request.request.body.settlementLines[0].amountTendered).toBe(300);
+    expect(typeof request.request.body.settlementLines[0].amountTendered).toBe('number');
+
     request.flush(transaction());
     fixture.detectChanges();
 
@@ -448,6 +455,164 @@ describe('CounterComponent', () => {
     counter.line('UPI')!.amount = 199;
     expect(counter.leftToAllocate).toBe(0);
     expect(counter.canTakePayment).toBe(true);
+  });
+
+  // ---------------------------------------------------------------- credit
+
+  function creditCustomer(overrides = {}) {
+    return {
+      customerId: 403, name: 'Ramesh Pawar', contactNumber: '9960448201',
+      outstanding: 340, advanceHeld: 0, oldestDebtDays: 54, warn: true, ...overrides
+    };
+  }
+
+  function addJioLineAndCredit() {
+    addJioLine();
+    counter.toggleMethod('CREDIT');
+    counter.toggleMethod('CASH');          // credit alone, so it covers the basket
+  }
+
+  it('shows what the customer will owe after this sale, which artboard 3 draws', () => {
+    addJioLineAndCredit();
+    counter.chooseCustomer(creditCustomer());
+    fixture.detectChanges();
+    // 340 already owed + 299 on this sale.
+    expect(counter.willOweAfterThis).toBe(639);
+    expect(fixture.nativeElement.textContent).toContain('Will owe after this');
+    expect(fixture.nativeElement.textContent).toContain('639.00');
+  });
+
+  /** §14.8's mirror rule: a charge consumes any advance first, then becomes debt. */
+  it('spends an advance before creating debt, matching what the server will do', () => {
+    addJioLineAndCredit();
+    counter.chooseCustomer(creditCustomer({ customerId: 287, outstanding: 0, advanceHeld: 37, warn: false }));
+    fixture.detectChanges();
+    expect(counter.willOweAfterThis).toBe(262);     // 299 - 37
+    expect(counter.advanceLeftAfterThis).toBe(0);
+    expect(fixture.nativeElement.textContent).toContain('comes off what they already have with us');
+  });
+
+  it('leaves an advance that more than covers the sale, owing nothing', () => {
+    addJioLineAndCredit();
+    counter.chooseCustomer(creditCustomer({ outstanding: 0, advanceHeld: 500, warn: false }));
+    fixture.detectChanges();
+    expect(counter.willOweAfterThis).toBe(0);
+    expect(counter.advanceLeftAfterThis).toBe(201); // 500 - 299
+  });
+
+  it('takes the credit amount from the typed row when the payment is split', () => {
+    addJioLine();
+    counter.toggleMethod('CREDIT');
+    counter.line('CASH')!.amount = 100;
+    counter.line('CREDIT')!.amount = 199;
+    counter.chooseCustomer(creditCustomer());
+    expect(counter.creditAmount).toBe(199);
+    expect(counter.willOweAfterThis).toBe(539);     // 340 + 199
+  });
+
+  // -- adding a customer who is not in the book --------------------------
+
+  it('offers a way to add a walk-in who is not in the book', () => {
+    addJioLineAndCredit();
+    counter.onCustomerQuery('zzzz');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Not in the book');
+  });
+
+  it('seeds the new-customer form from whatever was typed', () => {
+    addJioLineAndCredit();
+    counter.customerQuery = 'Sunita';
+    counter.startAddingCustomer();
+    expect(counter.newCustomer.firstName).toBe('Sunita');
+
+    counter.customerQuery = '9876543210';
+    counter.startAddingCustomer();
+    expect(counter.newCustomer.mobile).toBe('9876543210');
+    expect(counter.newCustomer.firstName).toBe('');
+  });
+
+  it('will not save without a first name and a ten-digit mobile', () => {
+    addJioLineAndCredit();
+    counter.startAddingCustomer();
+    counter.newCustomer = { firstName: '', lastName: '', mobile: '9876543210' };
+    expect(counter.canCreateCustomer).toBe(false);
+    counter.newCustomer = { firstName: 'Sunita', lastName: '', mobile: '98765' };
+    expect(counter.canCreateCustomer).toBe(false);
+    counter.newCustomer = { firstName: 'Sunita', lastName: '', mobile: '9876543210' };
+    expect(counter.canCreateCustomer).toBe(true);
+  });
+
+  it('omits a blank last name rather than sending an empty string', () => {
+    addJioLineAndCredit();
+    counter.startAddingCustomer();
+    counter.newCustomer = { firstName: 'Sunita', lastName: '  ', mobile: '9876543210' };
+    counter.createCustomer();
+    const request = http.expectOne(`${base}/customers`);
+    expect(request.request.body).toEqual({ firstName: 'Sunita', mobile: '9876543210' });
+    request.flush(creditCustomer({ customerId: 900, name: 'Sunita', outstanding: 0, warn: false }));
+  });
+
+  it('uses a newly created customer straight away', () => {
+    addJioLineAndCredit();
+    counter.startAddingCustomer();
+    counter.newCustomer = { firstName: 'Sunita', lastName: 'Rao', mobile: '9876543210' };
+    counter.createCustomer();
+    http.expectOne(`${base}/customers`).flush(
+      creditCustomer({ customerId: 900, name: 'Sunita Rao', contactNumber: '9876543210',
+                       outstanding: 0, oldestDebtDays: null, warn: false }));
+    expect(counter.line('CREDIT')!.customer!.customerId).toBe(900);
+    expect(counter.addingCustomer).toBe(false);
+    expect(counter.canTakePayment).toBe(true);
+  });
+
+  /**
+   * ⚠ A duplicate mobile answers 409 with the EXISTING customer rather than an error
+   * body — the one response on this surface that breaks the single error shape.
+   */
+  it('offers the existing customer when the mobile is already taken', () => {
+    addJioLineAndCredit();
+    counter.startAddingCustomer();
+    counter.newCustomer = { firstName: 'Sunita', lastName: '', mobile: '9960448201' };
+    counter.createCustomer();
+    http.expectOne(`${base}/customers`).flush(
+      { existingCustomerId: 403, name: 'Ramesh Pawar', contactNumber: '9960448201' },
+      { status: 409, statusText: 'Conflict' });
+    fixture.detectChanges();
+
+    expect(counter.existingCustomer!.existingCustomerId).toBe(403);
+    expect(counter.createCustomerError).toBe('');
+    expect(fixture.nativeElement.textContent).toContain('already has that mobile');
+  });
+
+  it('reads the existing customer back rather than assuming they owe nothing', () => {
+    addJioLineAndCredit();
+    counter.startAddingCustomer();
+    counter.newCustomer = { firstName: 'Sunita', lastName: '', mobile: '9960448201' };
+    counter.createCustomer();
+    http.expectOne(`${base}/customers`).flush(
+      { existingCustomerId: 403, name: 'Ramesh Pawar', contactNumber: '9960448201' },
+      { status: 409, statusText: 'Conflict' });
+
+    counter.useExistingCustomer();
+    const lookup = http.expectOne((r) => r.url === `${base}/customers` && r.method === 'GET');
+    expect(lookup.request.params.get('query')).toBe('9960448201');
+    lookup.flush([creditCustomer()]);
+
+    // The real figures, not zeroes.
+    expect(counter.line('CREDIT')!.customer!.outstanding).toBe(340);
+    expect(counter.line('CREDIT')!.customer!.warn).toBe(true);
+  });
+
+  it('reports an ordinary failure to create rather than treating it as a duplicate', () => {
+    addJioLineAndCredit();
+    counter.startAddingCustomer();
+    counter.newCustomer = { firstName: 'Sunita', lastName: '', mobile: '9876543210' };
+    counter.createCustomer();
+    http.expectOne(`${base}/customers`).flush(
+      { code: 'INVALID_REQUEST', message: 'A mobile number is 10 digits.', traceId: 'a' },
+      { status: 400, statusText: 'Bad Request' });
+    expect(counter.existingCustomer).toBeNull();
+    expect(counter.createCustomerError).toBe('A mobile number is 10 digits.');
   });
 
   // ---------------------------------------------------------------- TV entry

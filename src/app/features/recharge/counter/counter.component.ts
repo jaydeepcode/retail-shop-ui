@@ -3,6 +3,8 @@ import { Subject, Subscription } from 'rxjs';
 import { catchError, debounceTime, distinctUntilChanged, of, switchMap } from 'rxjs';
 import {
   CounterConfigResponse,
+  CreateCustomerRequest,
+  CreateCustomerRequestResult,
   CreditCustomerResponse,
   MarkCompleteRequest,
   MarkFailedRequest,
@@ -15,11 +17,12 @@ import {
 } from '../model/recharge.models';
 import { newIdempotencyKey } from '../services/idempotency-key';
 import { RechargeApiService } from '../services/recharge-api.service';
-import { errorSentence, firstBadRechargeIndex } from '../services/recharge-error';
+import { asExistingCustomer, errorSentence, firstBadRechargeIndex } from '../services/recharge-error';
 import {
   allocated,
   basketTotal,
   BasketLine,
+  num,
   PaymentLine,
   toRechargeLines,
   toSettlementLines
@@ -507,6 +510,7 @@ export class CounterComponent implements OnInit, OnDestroy {
     }
     this.customerResults = [];
     this.customerQuery = '';
+    this.cancelAddingCustomer();
   }
 
   clearCustomer(): void {
@@ -514,6 +518,157 @@ export class CounterComponent implements OnInit, OnDestroy {
     if (credit) {
       credit.customer = undefined;
     }
+  }
+
+  /** What this sale will put on the tab: the credit line's share of the basket. */
+  get creditAmount(): number {
+    const credit = this.line('CREDIT');
+    if (!credit) {
+      return 0;
+    }
+    return this.isSingleMethod ? this.provisionalTotal : num(credit.amount);
+  }
+
+  /**
+   * Artboard 3's third figure — what they will owe once this sale commits.
+   *
+   * Provisional, exactly like the basket total: before the settle call there is no server
+   * figure to disagree with, and the response's `outstandingAfter` replaces it the moment
+   * there is one. It follows §14.8's mirror rule — a charge consumes any advance first and
+   * only then becomes debt — so it agrees with what the server is about to do rather than
+   * inventing a second opinion.
+   *
+   * This is the figure that makes the warning actionable: "already owes ₹340" does not
+   * tell the staff whether to extend more, and "will owe ₹389" does.
+   */
+  get willOweAfterThis(): number | null {
+    const customer = this.line('CREDIT')?.customer;
+    if (!customer) {
+      return null;
+    }
+    const paise =
+      Math.round(customer.outstanding * 100) +
+      Math.round(this.creditAmount * 100) -
+      Math.round(customer.advanceHeld * 100);
+    return Math.max(0, paise) / 100;
+  }
+
+  /** What is left of their advance once this sale has eaten into it. */
+  get advanceLeftAfterThis(): number {
+    const customer = this.line('CREDIT')?.customer;
+    if (!customer) {
+      return 0;
+    }
+    const paise = Math.round(customer.advanceHeld * 100) - Math.round(this.creditAmount * 100);
+    return Math.max(0, paise) / 100;
+  }
+
+  // -- adding a customer who is not in the book yet ------------------------
+
+  addingCustomer = false;
+  newCustomer: CreateCustomerRequest = { firstName: '', lastName: '', mobile: '' };
+  creatingCustomer = false;
+  createCustomerError = '';
+  /** A 409 names whoever already holds that mobile, so they can be used instead. */
+  existingCustomer: CreateCustomerRequestResult | null = null;
+
+  /**
+   * A walk-in taking credit has to be named, and 506 customers is not everyone. Endpoint
+   * #5 exists for exactly this, and without a caller a new customer could only be added
+   * by someone editing the database.
+   */
+  startAddingCustomer(): void {
+    this.addingCustomer = true;
+    this.createCustomerError = '';
+    this.existingCustomer = null;
+    // The search box usually already holds what was typed; a 10-digit string is a mobile.
+    const typed = this.customerQuery.trim();
+    this.newCustomer = /^[0-9]{10}$/.test(typed.replace(/\s/g, ''))
+      ? { firstName: '', lastName: '', mobile: typed.replace(/\s/g, '') }
+      : { firstName: typed, lastName: '', mobile: '' };
+  }
+
+  cancelAddingCustomer(): void {
+    this.addingCustomer = false;
+    this.creatingCustomer = false;
+    this.createCustomerError = '';
+    this.existingCustomer = null;
+    this.newCustomer = { firstName: '', lastName: '', mobile: '' };
+  }
+
+  get canCreateCustomer(): boolean {
+    return (
+      !this.creatingCustomer &&
+      !!this.newCustomer.firstName.trim() &&
+      /^[0-9]{10}$/.test(this.newCustomer.mobile.trim())
+    );
+  }
+
+  createCustomer(): void {
+    if (!this.canCreateCustomer) {
+      return;
+    }
+    this.creatingCustomer = true;
+    this.createCustomerError = '';
+    this.existingCustomer = null;
+
+    const request: CreateCustomerRequest = {
+      firstName: this.newCustomer.firstName.trim(),
+      mobile: this.newCustomer.mobile.trim()
+    };
+    // Not @NotBlank on the server: 147 of 506 rows have no last name, and a walk-in may
+    // give only one name.
+    const lastName = (this.newCustomer.lastName ?? '').trim();
+    if (lastName) {
+      request.lastName = lastName;
+    }
+
+    this.api.createCustomer(request).subscribe({
+      next: (created) => {
+        this.creatingCustomer = false;
+        this.chooseCustomer(created);
+      },
+      error: (error) => {
+        this.creatingCustomer = false;
+        // ⚠ A duplicate mobile answers 409 carrying `CreateCustomerRequestResult` — the
+        // existing customer, not an error body. Offering them beats making the staff
+        // search again for someone the server has already found.
+        const duplicate = asExistingCustomer(error);
+        if (duplicate) {
+          this.existingCustomer = duplicate;
+          return;
+        }
+        this.createCustomerError = errorSentence(error);
+      }
+    });
+  }
+
+  /**
+   * Use the customer the 409 named. Their figures are not in that body, so they are read
+   * back by search rather than assumed to be zero — a duplicate is often someone who
+   * already owes.
+   */
+  useExistingCustomer(): void {
+    const existing = this.existingCustomer;
+    if (!existing) {
+      return;
+    }
+    this.creatingCustomer = true;
+    this.api.searchCustomers(existing.contactNumber, 5).subscribe({
+      next: (rows) => {
+        this.creatingCustomer = false;
+        const match = rows.find((row) => row.customerId === existing.existingCustomerId);
+        if (match) {
+          this.chooseCustomer(match);
+          return;
+        }
+        this.createCustomerError = 'That customer could not be read back. Search for them by name.';
+      },
+      error: (error) => {
+        this.creatingCustomer = false;
+        this.createCustomerError = errorSentence(error);
+      }
+    });
   }
 
   get canTakePayment(): boolean {
@@ -539,12 +694,15 @@ export class CounterComponent implements OnInit, OnDestroy {
 
     // On a single method the one line carries the whole basket, so the amount is filled
     // in rather than typed. Cash with no tender typed means exact money.
-    const lines = this.payment.map((line) => ({
+    const lines: PaymentLine[] = this.payment.map((line) => ({
       ...line,
-      amount: this.isSingleMethod ? this.provisionalTotal : line.amount,
+      amount: this.isSingleMethod ? this.provisionalTotal : num(line.amount),
       amountTendered:
         line.method === 'CASH'
-          ? line.amountTendered ?? (this.isSingleMethod ? this.provisionalTotal : line.amount)
+          ? line.amountTendered != null && line.amountTendered !== ''
+            ? num(line.amountTendered)
+            // Nothing typed means they gave the exact money.
+            : this.isSingleMethod ? this.provisionalTotal : num(line.amount)
           : undefined
     }));
 

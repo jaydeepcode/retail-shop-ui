@@ -41,17 +41,43 @@ export interface BasketLine {
   defaultRouteName?: string;
 }
 
-/** One row of the payment panel. Normally there is exactly one, and it is cash. */
+/**
+ * One row of the payment panel. Normally there is exactly one, and it is cash.
+ *
+ * ⚠ `amount` and `amountTendered` are typed `number | string` because that is the truth:
+ * they are bound with `[(ngModel)]` to text inputs, which write back STRINGS. Typing them
+ * as `number` was a lie that cost a real defect — the counter sent `"100"` and `"199"`,
+ * the screen's own "left to allocate" read ₹0.00 because JavaScript coerces for `*`, and
+ * the server then refused the basket with `providedTotal: 100199` from string
+ * concatenation. Every read of these goes through `num()`.
+ */
 export interface PaymentLine {
   method: SettlementMethod;
-  amount: number | null;
+  amount: number | string | null;
   /** CASH only — `SettlementMethod.carriesTender()`. */
-  amountTendered?: number | null;
+  amountTendered?: number | string | null;
   /** UPI only. */
   reference?: string;
   /** CREDIT only, and required for it. */
   customer?: CreditCustomerResponse;
   note?: string;
+}
+
+/**
+ * A figure typed into a text input, as a number.
+ *
+ * Blank, whitespace and anything unparseable are 0 — the panel refuses to settle until
+ * the rows sum, so 0 is the safe reading of "nothing typed yet" rather than a guess.
+ */
+export function num(value: number | string | null | undefined): number {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : 0;
+  }
+  if (typeof value !== 'string' || !value.trim()) {
+    return 0;
+  }
+  const parsed = Number(value.trim());
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 /**
@@ -73,7 +99,7 @@ export function basketTotal(lines: BasketLine[], defaultSurcharge: (line: Basket
 
 /** What the payment lines currently account for. */
 export function allocated(lines: PaymentLine[]): number {
-  const paise = lines.reduce((sum, line) => sum + Math.round((line.amount ?? 0) * 100), 0);
+  const paise = lines.reduce((sum, line) => sum + Math.round(num(line.amount) * 100), 0);
   return paise / 100;
 }
 
@@ -107,12 +133,14 @@ export function toRechargeLines(lines: BasketLine[]): RechargeLineRequest[] {
  */
 export function toSettlementLines(lines: PaymentLine[]): SettlementLineRequest[] {
   return lines.map((line) => {
+    // ⚠ Coerced, never passed through: these come from text inputs as strings, and the
+    // contract says `amount` is a number.
     const request: SettlementLineRequest = {
       method: line.method,
-      amount: line.amount ?? 0
+      amount: num(line.amount)
     };
-    if (line.method === 'CASH' && line.amountTendered != null) {
-      request.amountTendered = line.amountTendered;
+    if (line.method === 'CASH' && line.amountTendered != null && line.amountTendered !== '') {
+      request.amountTendered = num(line.amountTendered);
     }
     if (line.method === 'UPI' && line.reference) {
       request.reference = line.reference;

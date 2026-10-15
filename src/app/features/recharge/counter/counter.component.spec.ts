@@ -160,11 +160,49 @@ describe('CounterComponent', () => {
 
   // ---------------------------------------------------------------- surcharge
 
-  it('defaults our charge on for TV and off for mobile', () => {
+  it('⚠ offers our charge on TV only, never on mobile', () => {
+    // Owner, 2026-10-15: "only applicable for TV, not for Mobile". It used to be
+    // shown on both — defaulted to 10 on TV and blank on mobile, per log §15.11 —
+    // which left an always-blank box on every mobile sale for staff to ignore.
+    //
+    // The DATA side of §15.11 is untouched: rc_recharge.SURCHARGE and V28's
+    // ck_rech_surcharge (>= 0, deliberately not keyed to RECHARGE_KIND) still
+    // allow a mobile surcharge, so the 198 historical mobile-attached cases stay
+    // reproducible and the API still accepts one. Only this screen narrows.
     expect(counter.serviceType).toBe('MOBILE');
-    expect(counter.surchargeText).toBe('');
+    expect(counter.chargeApplies).toBe(false);
+
     counter.chooseService('TV');
+    expect(counter.chargeApplies).toBe(true);
     expect(counter.surchargeText).toBe('10');
+  });
+
+  it('the charge field is absent from the DOM on mobile', () => {
+    // Asserted on the rendered template, not just the getter: the field being
+    // hidden is the whole of what the owner asked for.
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('#counter-surcharge')).toBeNull();
+
+    counter.chooseService('TV');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('#counter-surcharge')).not.toBeNull();
+  });
+
+  it('never sends a surcharge on a mobile line, even one left over from a TV entry', () => {
+    // The sequence that would have leaked one: start on TV, type a charge, switch
+    // to mobile without clearing it. surchargeTouched is still true, so the guard
+    // has to be on chargeApplies rather than on the touched flag alone.
+    counter.chooseService('TV');
+    counter.onSurchargeInput('10');
+
+    counter.chooseService('MOBILE');
+    counter.numberText = '9000000002';
+    counter.chooseOperator('JIO');
+    counter.amountText = '199';
+    counter.addToBasket();
+
+    expect(counter.basket.length).toBe(1);
+    expect(counter.basket[0].surcharge).toBeUndefined();
   });
 
   it('omits the surcharge when untouched, so the server stays authoritative', () => {

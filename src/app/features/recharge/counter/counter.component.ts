@@ -722,6 +722,19 @@ export class CounterComponent implements OnInit, OnDestroy {
     this.operatorCode = operators.length === 1 ? operators[0].code : '';
   }
 
+  /**
+   * Whether the counter offers our charge for what is being sold.
+   *
+   * ⚠ TV only (owner, 2026-10-15: "only applicable for TV, not for Mobile").
+   * Driven by the server's configured default rather than by a hardcoded `=== 'TV'`,
+   * so the day `surcharge.default.mobile` is set to something non-zero in
+   * `rc_setting`, the field appears without a release — which is what
+   * requirement 10's config-in-tables is for.
+   */
+  get chargeApplies(): boolean {
+    return this.defaultSurchargeFor(this.serviceType) > 0;
+  }
+
   private defaultSurchargeFor(serviceType: ServiceType): number {
     if (!this.config) {
       return 0;
@@ -746,7 +759,11 @@ export class CounterComponent implements OnInit, OnDestroy {
    * next-session-s3-screens.md calls out.
    */
   private surchargeToSend(): number | undefined {
-    if (!this.surchargeTouched) {
+    // ⚠ Mobile never sends one from this screen. The server would accept it —
+    // §15.11 keeps it representable and V28's CHECK is >= 0 rather than keyed to
+    // the service type — but the counter does not offer it, so sending a value
+    // the staff member was never shown would be inventing money.
+    if (!this.chargeApplies || !this.surchargeTouched) {
       return undefined;
     }
     const text = this.surchargeText.trim();

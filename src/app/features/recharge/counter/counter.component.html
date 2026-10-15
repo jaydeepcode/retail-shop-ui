@@ -159,10 +159,21 @@
             </p>
           </div>
 
-          <!-- Our charge is its own field, defaulted on for DTH and off for mobile, and
-               editable either way. Never merged into the amount: it reaches a different
-               income account and is 60% of DTH margin. -->
-          <div class="field field-surcharge">
+          <!-- ⚠ TV ONLY, on the counter. Our charge is a DTH charge: the owner's words
+               are that it is "only applicable for TV, not for Mobile" (2026-10-15), so
+               offering an always-blank box on every mobile sale was a field staff would
+               have to ignore a hundred times a week.
+
+               log §15.11 defaulted it to DTH and kept it editable on mobile so the 198
+               historical mobile-attached cases stayed reproducible. That reasoning is
+               about the DATA, and it still holds — rc_recharge.SURCHARGE and V28's
+               ck_rech_surcharge (>= 0, deliberately not keyed to RECHARGE_KIND) are
+               unchanged, and the API still accepts a mobile surcharge. What changes is
+               only what this screen offers.
+
+               Never merged into the amount either way: it reaches a different income
+               account and is 60% of DTH margin. -->
+          <div class="field field-surcharge" *ngIf="chargeApplies">
             <label for="counter-surcharge">Our charge</label>
             <div class="amount-controls">
               <span class="rupee" aria-hidden="true">₹</span>

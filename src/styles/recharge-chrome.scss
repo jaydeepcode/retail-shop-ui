@@ -1,0 +1,123 @@
+@use '../app/features/shared/tokens' as t;
+
+// Chrome shared by the recharge screens, held globally rather than per component.
+//
+// ⚠ GLOBAL ON PURPOSE, and the reason is mechanical rather than stylistic. Angular emits
+// component styles PER COMPONENT, so the "same two buttons as the counter" that artboard 4
+// deliberately reuses were being emitted twice, and the grouped-digit rule four times. The
+// counter's own stylesheet crossed its budget on duplication alone, with not one unused
+// rule in it.
+//
+// The names here were checked against Bootstrap and against the rest of the app before
+// being unscoped: none of `.answer*`, `.route-switch`, `.keycap*` or `.digit-group` is
+// defined anywhere else. Anything that WOULD collide — `.btn`, `.card`, `.field` — stays
+// component-scoped, which is why this file is small and will stay small.
+
+// ---------------------------------------------------------------- grouped digits
+
+// Adjacent spans with a margin, never spaces: the gap is visual only, so selecting a
+// number still copies 9430043541 — which is what the operator's app will accept.
+.digit-group + .digit-group {
+  margin-left: 0.34em;
+}
+
+// ---------------------------------------------------------------- "did it go through?"
+
+// The counter's two answers and the worklist's are the same control by design: artboard 4
+// says "the same two buttons as the counter, so there is one thing to learn and not two".
+
+.answer {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  border-radius: 5px;
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: progress;
+  }
+}
+
+.answer-yes {
+  border: 0;
+  background: #19653a;
+  color: #ffffff;
+}
+
+.answer-no {
+  border: 1px solid #a3201a;
+  background: t.$surface;
+  color: #a3201a;
+}
+
+.answer-main {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.answer-title {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.answer-sub {
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+// ---------------------------------------------------------------- the route override
+
+.route-switch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 13px;
+  border: 1px solid t.$border-light;
+  border-radius: 4px;
+  background: t.$surface-sunk;
+  flex-wrap: wrap;
+
+  label {
+    flex-grow: 1;
+    font-size: 13px;
+    color: t.$ink-muted;
+  }
+
+  select {
+    height: 32px;
+    padding: 0 8px;
+    border: 1px solid t.$border;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 13px;
+    background: t.$surface;
+    color: t.$ink;
+  }
+
+  // FLOAT_ACCOUNT_NOT_DERIVABLE is fixed by choosing another route, so the picker is
+  // called out rather than leaving the staff to find it under the error.
+  &.is-called-out {
+    border-color: #e3a857;
+    background: #fff3df;
+  }
+}
+
+// ---------------------------------------------------------------- keyboard hints
+
+.keycap {
+  font-family: t.$mono;
+  font-size: 11px;
+  color: t.$ink-muted;
+}
+
+.keycap-on-dark {
+  color: inherit;
+  opacity: 0.85;
+  font-size: 13px;
+}

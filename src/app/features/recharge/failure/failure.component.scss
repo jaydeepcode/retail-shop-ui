@@ -1,0 +1,324 @@
+@use '../../shared/tokens' as t;
+
+// Artboard 5. A 620px detail column and the record panel beside it.
+
+:host {
+  display: block;
+  font-family: t.$sans;
+  color: t.$ink;
+}
+
+.fail {
+  display: flex;
+  gap: 22px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.fail-main {
+  flex: 1 1 520px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.fail-side {
+  flex: 0 1 400px;
+  min-width: 300px;
+}
+
+.mono { font-family: t.$mono; }
+
+.card {
+  background: t.$surface;
+  border: 1px solid t.$border;
+  border-radius: 6px;
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.card-bad {
+  border-left: 4px solid #a3201a;
+}
+
+.card-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: t.$ink-muted;
+}
+
+.fail-loading,
+.fail-fault {
+  margin: 0 0 16px;
+  max-width: 680px;
+  padding: 16px 20px;
+  background: t.$surface;
+  border: 1px solid t.$border;
+  border-radius: 6px;
+  font-size: 14px;
+  color: t.$ink-muted;
+}
+
+.fail-fault {
+  border-left: 4px solid #a3201a;
+  color: #8a1c16;
+}
+
+.fail-gone {
+  max-width: 560px;
+  padding: 28px 30px;
+  background: t.$surface;
+  border: 1px solid t.$border;
+  border-radius: 6px;
+}
+
+.fail-gone-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.fail-gone-note {
+  margin: 10px 0 20px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: t.$ink-muted;
+}
+
+// ------------------------------------------------- the failure itself
+
+.fail-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  flex-wrap: wrap;
+}
+
+.fail-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 9px;
+  border-radius: 3px;
+  background: #f7e2e0;
+  color: #8a1c16;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.fail-when {
+  font-size: 12px;
+  color: t.$ink-muted;
+}
+
+.fail-number {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.fail-what {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: -6px 0 0;
+  flex-wrap: wrap;
+}
+
+.fail-operator {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.fail-sub {
+  font-size: 14px;
+  color: t.$ink-muted;
+}
+
+.fail-paid {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+  color: t.$ink-muted;
+
+  li + li { margin-top: 2px; }
+}
+
+.holding {
+  padding: 13px 15px;
+  border-radius: 5px;
+  background: t.$surface-sunk;
+  border: 1px solid t.$border-light;
+}
+
+.holding-label {
+  margin: 0;
+  font-size: 13px;
+  color: t.$ink-muted;
+}
+
+.holding-figure {
+  margin: 2px 0 0;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.holding-note {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: t.$ink-muted;
+}
+
+// ------------------------------------------------- the two blocked resolutions
+
+.choices {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.choice {
+  flex: 1 1 180px;
+  min-height: 72px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 12px;
+  border-radius: 5px;
+  border: 1px solid t.$border;
+  background: t.$surface-sunk;
+  font-family: inherit;
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+}
+
+.choice-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: t.$ink;
+}
+
+.choice-sub {
+  font-size: 12px;
+  color: t.$ink-muted;
+}
+
+.blocked {
+  margin: 0;
+  padding: 13px 15px;
+  border-radius: 5px;
+  border: 1px solid #e3a857;
+  background: #fff3df;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #6e3c00;
+
+  .mono { font-size: 12px; }
+}
+
+.blocked-why {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: t.$ink-muted;
+}
+
+// ------------------------------------------------- the record
+
+.record {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  margin: 0;
+
+  dt {
+    font-size: 11px;
+    font-weight: 400;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: t.$ink-muted;
+  }
+
+  dd {
+    margin: 2px 0 0;
+    font-size: 15px;
+    font-weight: 600;
+  }
+}
+
+.siblings {
+  padding-top: 12px;
+  border-top: 1px solid t.$border-light;
+
+  ul {
+    list-style: none;
+    margin: 6px 0 0;
+    padding: 0;
+    font-size: 13px;
+  }
+
+  li {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 4px 0;
+  }
+}
+
+.siblings-head {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: t.$ink-muted;
+}
+
+.siblings-status {
+  margin-left: auto;
+  font-size: 12px;
+  color: t.$ink-muted;
+}
+
+.record-note {
+  margin: 0;
+  padding-top: 12px;
+  border-top: 1px solid t.$border-light;
+  font-size: 12px;
+  color: t.$ink-muted;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  font-family: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.btn-dark {
+  height: 44px;
+  padding: 0 24px;
+  background: t.$ink;
+  color: #ffffff;
+  font-size: 15px;
+}
+

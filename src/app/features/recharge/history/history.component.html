@@ -1,0 +1,153 @@
+<!-- Artboard 7. The only screen the financial-year filter touches. -->
+
+<div class="history">
+
+  <!-- the filter -->
+  <section class="filters" aria-label="Filter the history">
+    <div class="filter">
+      <label for="history-year">Year</label>
+      <select id="history-year" [(ngModel)]="financialYear" (change)="onFilterChange()">
+        <!-- The server's list. Empty means nothing is recorded yet, not a failed load. -->
+        <option *ngIf="!availableYears.length" [value]="financialYear">{{ financialYear || '—' }}</option>
+        <option *ngFor="let year of availableYears" [value]="year">{{ year }}</option>
+      </select>
+    </div>
+
+    <div class="filter">
+      <label for="history-number">Number starts with</label>
+      <input id="history-number" class="filter-input mono" type="text" inputmode="numeric"
+             autocomplete="off" [value]="numberPrefix"
+             (input)="onNumberInput($any($event.target).value)">
+    </div>
+
+    <div class="filter">
+      <label for="history-operator">Operator</label>
+      <select id="history-operator" [(ngModel)]="operatorCode" (change)="onFilterChange()">
+        <option value="">All</option>
+        <option *ngFor="let operator of operators" [value]="operator.code">{{ operator.name }}</option>
+      </select>
+    </div>
+
+    <div class="filter">
+      <label for="history-status">Status</label>
+      <select id="history-status" [(ngModel)]="status" (change)="onFilterChange()">
+        <option *ngFor="let option of statuses" [value]="option.value">{{ option.label }}</option>
+      </select>
+    </div>
+
+    <button type="button" class="btn btn-small" (click)="clearFilters()">Clear</button>
+
+    <span class="filter-range" *ngIf="result as page">
+      {{ page.startDate | date: 'd MMM yyyy' }} – {{ page.endDate | date: 'd MMM yyyy' }}
+    </span>
+  </section>
+
+  <p *ngIf="loadError" class="history-fault" role="alert">
+    {{ loadError }}
+    <button type="button" class="btn btn-small" (click)="load()">Try again</button>
+  </p>
+
+  <p *ngIf="loading" class="history-loading">Looking…</p>
+
+  <!-- ⚠ Empty state one: nothing has ever been recorded. Correct on day one. -->
+  <section *ngIf="!loading && nothingRecordedYet" class="history-blank"
+           aria-labelledby="blank-heading">
+    <h2 id="blank-heading" class="history-blank-title">No recharges recorded yet</h2>
+    <p class="history-blank-note">
+      This screen shows sales made in this app, and none have been made yet. It fills from
+      the first sale on the counter — nothing is missing and nothing is broken.
+    </p>
+    <a class="btn btn-dark" routerLink="../counter">Go to the counter</a>
+  </section>
+
+  <!-- ⚠ Empty state two: the filter matched nothing. An ordinary result. -->
+  <section *ngIf="!loading && noMatches" class="history-blank" aria-labelledby="nomatch-heading">
+    <h2 id="nomatch-heading" class="history-blank-title">Nothing matches that</h2>
+    <p class="history-blank-note">
+      There are sales recorded, but none under this filter. Try another year, operator or
+      number.
+    </p>
+    <button type="button" class="btn btn-dark" (click)="clearFilters()">Clear the filter</button>
+  </section>
+
+  <!-- the table — one row per recharge, which is what the endpoint returns -->
+  <section *ngIf="!loading && rows.length" class="table-wrap" aria-label="Recharges">
+    <table class="table">
+      <caption class="visually-hidden">
+        Recharges in {{ financialYear }}, most recent first — one row per recharge
+      </caption>
+      <thead>
+        <tr>
+          <th scope="col">When</th>
+          <th scope="col">What was done</th>
+          <th scope="col">Status</th>
+          <th scope="col" class="num">Amount</th>
+          <th scope="col" class="num">Our charge</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let row of rows; trackBy: trackById" [class.is-bad]="row.status === 'FAILED'"
+            [class.is-void]="row.status === 'VOIDED'">
+          <td class="mono when">
+            {{ row.rechargeAt | date: 'dd MMM' }}<br>
+            <span class="when-time">{{ row.rechargeAt | date: 'HH:mm' }}</span>
+          </td>
+          <td>
+            <span class="mono did" [class.struck]="row.status === 'VOIDED'"><span
+              [attr.aria-label]="row.number"><span
+              *ngFor="let group of row.number | numberGroups: row.serviceType"
+              class="digit-group">{{ group }}</span></span> · {{ row.operatorName }} ₹{{ row.amount }}</span>
+            <span class="did-sub">
+              via {{ row.routeName }}<span *ngIf="!row.routeConfirmed"> — not confirmed yet</span>
+            </span>
+            <span *ngIf="row.failureReason" class="did-reason">{{ row.failureReason }}</span>
+            <span *ngIf="row.vendorRef" class="did-ref mono">ref {{ row.vendorRef }}</span>
+          </td>
+          <td>
+            <span class="badge" [ngClass]="'badge-' + statusTone(row)">{{ statusLabel(row) }}</span>
+            <!-- Artboard 7 puts "Shouldn't exist? Void it" here. It is deliberately absent:
+                 /void moves the status but posts no reversing voucher, so the ledger would
+                 overstate income. See the note under the table. -->
+          </td>
+          <td class="num mono">{{ row.amount | number: '1.2-2' }}</td>
+          <td class="num mono">
+            {{ row.surcharge ? (row.surcharge | number: '1.2-2') : '—' }}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="table-foot">
+      <span class="foot-figure">
+        <span class="foot-label">Recharges found</span>
+        <span class="mono foot-value">{{ totalElements | number }}</span>
+      </span>
+      <span class="foot-spacer"></span>
+      <span class="foot-page">Page {{ page + 1 }} of {{ totalPages }}</span>
+      <button type="button" class="btn btn-small" [disabled]="page === 0"
+              (click)="goToPage(page - 1)">Previous</button>
+      <button type="button" class="btn btn-small" [disabled]="page + 1 >= totalPages"
+              (click)="goToPage(page + 1)">Next</button>
+    </div>
+  </section>
+
+  <!-- The two notes that keep the screen honest about what it is not showing. -->
+  <section class="history-notes">
+    <p class="history-note">
+      <span class="history-note-label">The year filter</span>
+      <span>Changes only what you are looking at. A sale is filed under the year of its own
+        date and that can never be set by hand, so nothing can be filed into the wrong year
+        by leaving this on an earlier one. The worklist and the failures ignore it entirely —
+        anything still open shows regardless of when it started.</span>
+    </p>
+
+    <p class="history-note history-note-gap">
+      <span class="history-note-label">Two things missing here</span>
+      <span>Rows are listed one per recharge, not grouped under their payment, and there is
+        no “paid by” column: the history endpoint returns recharges without a payment id or
+        settlement lines. And voiding a completed sale has no button yet — the status would
+        move but the reversing voucher is not posted, so the books would overstate income.
+        Both are recorded in the session notes.</span>
+    </p>
+  </section>
+</div>

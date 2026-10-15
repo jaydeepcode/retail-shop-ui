@@ -1,0 +1,308 @@
+@use '../../shared/tokens' as t;
+
+:host {
+  display: block;
+  font-family: t.$sans;
+  color: t.$ink;
+}
+
+.day {
+  max-width: 980px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px 22px;
+  background: t.$surface;
+  border: 1px solid t.$border;
+  border-radius: 6px;
+}
+
+.mono { font-family: t.$mono; }
+
+.day-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.day-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  flex-grow: 1;
+}
+
+.day-date {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: t.$ink-muted;
+  }
+
+  input {
+    height: 36px;
+    padding: 0 10px;
+    border: 1px solid t.$border;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 14px;
+    background: t.$surface;
+    color: t.$ink;
+  }
+}
+
+.day-loading,
+.day-fault {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 0;
+  padding: 14px 16px;
+  border-radius: 5px;
+  background: t.$surface-sunk;
+  border: 1px solid t.$border-light;
+  font-size: 14px;
+  color: t.$ink-muted;
+}
+
+.day-fault {
+  border-left: 4px solid #a3201a;
+  color: #8a1c16;
+}
+
+// ------------------------------------------------- the figures
+
+.figures {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.figure {
+  flex: 1 1 200px;
+  padding: 15px 17px;
+  border-radius: 5px;
+  background: t.$surface-sunk;
+  border: 1px solid t.$border-light;
+}
+
+.figure-lead {
+  background: t.$primary-tint;
+  border-color: #c3cdf6;
+}
+
+.figure-label {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: t.$ink-muted;
+}
+
+.figure-value {
+  margin: 7px 0 0;
+  font-size: 30px;
+  font-weight: 600;
+}
+
+.figure-sum {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: t.$primary-dark;
+}
+
+.figure-note {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: t.$ink-muted;
+}
+
+// ------------------------------------------------- held / clear
+
+.held-warn,
+.held-clear {
+  margin: 0;
+  padding: 13px 15px;
+  border-radius: 5px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.held-warn {
+  border: 1px solid #e3a857;
+  background: #fff3df;
+  color: #6e3c00;
+
+  strong { color: t.$ink; }
+}
+
+.held-clear {
+  border: 1px solid #cbe2d5;
+  background: #f2f7f4;
+  color: #19653a;
+}
+
+// ------------------------------------------------- tender mix
+
+.tender {
+  padding: 14px 16px;
+  border-radius: 5px;
+  background: t.$surface-sunk;
+  border: 1px solid t.$border-light;
+}
+
+.tender-head,
+.takings-head {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: t.$ink-muted;
+}
+
+.tender-list {
+  list-style: none;
+  display: flex;
+  gap: 26px;
+  margin: 9px 0 0;
+  padding: 0;
+  flex-wrap: wrap;
+
+  li {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+}
+
+.tender-label {
+  font-size: 11px;
+  color: t.$ink-muted;
+}
+
+.tender-value {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.tender-none {
+  font-size: 13px;
+  color: t.$ink-faint;
+}
+
+.tender-note {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: t.$ink-muted;
+}
+
+// ------------------------------------------------- takings table
+
+.takings {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+
+  th {
+    padding: 9px 12px;
+    text-align: left;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: t.$ink-muted;
+    background: t.$surface-sunk;
+    border-bottom: 1px solid t.$border-light;
+  }
+
+  td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #f0f2f6;
+  }
+
+  .num { text-align: right; }
+
+  tfoot th,
+  tfoot td {
+    background: t.$surface-sunk;
+    border-bottom: 0;
+    border-top: 1px solid t.$border;
+    font-weight: 600;
+  }
+
+  tfoot th {
+    font-size: 11px;
+  }
+
+  tfoot td {
+    font-size: 14px;
+  }
+}
+
+.takings-none {
+  margin: 0;
+  font-size: 13px;
+  color: t.$ink-faint;
+}
+
+// ------------------------------------------------- what is missing
+
+.day-gap {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin: 0;
+  padding: 14px 16px;
+  border-radius: 5px;
+  border: 1px solid t.$border;
+  border-left: 4px solid t.$border;
+  background: t.$surface-sunk;
+  font-size: 12px;
+  line-height: 1.5;
+  color: t.$ink-muted;
+}
+
+.day-gap-label {
+  flex-shrink: 0;
+  width: 110px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+// ------------------------------------------------- buttons
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-small {
+  height: 34px;
+  padding: 0 14px;
+  border-color: t.$border;
+  background: t.$surface;
+  color: t.$ink;
+  font-size: 13px;
+}

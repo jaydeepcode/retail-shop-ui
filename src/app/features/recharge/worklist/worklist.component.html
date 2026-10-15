@@ -1,0 +1,171 @@
+<!-- Artboard 4. Normally empty, so the empty state is the main state. -->
+
+<p *ngIf="loadError" class="tray-fault" role="alert">
+  {{ loadError }}
+  <button type="button" class="btn btn-small" (click)="load()">Try again</button>
+</p>
+
+<p *ngIf="loading" class="tray-loading">Looking for anything left over…</p>
+
+<!-- The main state: nothing waiting. Said in words, not drawn as an empty table. -->
+<section *ngIf="isEmpty" class="tray-clear" aria-labelledby="clear-heading">
+  <h2 id="clear-heading" class="tray-clear-title">Nothing waiting</h2>
+  <p class="tray-clear-note">
+    Recharges get done at the counter seconds after the money is taken, so this tray is
+    normally empty. Anything set aside, or any failure not yet sorted out, shows up here.
+  </p>
+  <a class="btn btn-dark" routerLink="../counter">Back to the counter</a>
+</section>
+
+<div *ngIf="!loading && !loadError && !isEmpty" class="tray">
+
+  <div class="tray-main">
+
+    <p class="tray-why">
+      Normally this is empty. Recharges get done at the counter seconds after the money is
+      taken — this is only what got set aside.
+    </p>
+
+    <!-- set aside, still to do -->
+    <section *ngIf="awaiting.length" class="panel" aria-labelledby="awaiting-heading">
+      <h2 id="awaiting-heading" class="panel-head">
+        Set aside, still to do
+        <span class="panel-count">{{ awaiting.length }}</span>
+      </h2>
+      <ul class="rows">
+        <li *ngFor="let row of awaiting; trackBy: trackById">
+          <button type="button" class="row" [class.is-current]="selected?.rechargeId === row.rechargeId"
+                  [attr.aria-pressed]="selected?.rechargeId === row.rechargeId"
+                  (click)="select(row)">
+            <span class="row-main">
+              <span class="mono row-number" [attr.aria-label]="row.number"><span
+                *ngFor="let group of row.number | numberGroups: row.serviceType"
+                class="digit-group">{{ group }}</span></span>
+              <span class="row-sub">
+                {{ row.operatorName }} · money taken {{ row.rechargeAt | date: 'HH:mm' }}
+              </span>
+            </span>
+            <span class="row-money">
+              <span class="mono row-amount">₹{{ row.amount }}</span>
+              <span *ngIf="row.surcharge" class="mono row-surcharge">+ ₹{{ row.surcharge }} ours</span>
+            </span>
+          </button>
+        </li>
+      </ul>
+    </section>
+
+    <!-- failed, not yet sorted out -->
+    <section *ngIf="failures.length" class="panel panel-bad" aria-labelledby="failures-heading">
+      <h2 id="failures-heading" class="panel-head panel-head-bad">
+        Failed, not yet sorted out
+        <span class="panel-count">
+          {{ failures.length }} — ₹{{ failuresHeld | number: '1.2-2' }} of their money still with us
+        </span>
+      </h2>
+      <ul class="rows">
+        <li *ngFor="let row of failures; trackBy: trackById">
+          <div class="row row-static">
+            <span class="row-main">
+              <span class="mono row-number" [attr.aria-label]="row.number"><span
+                *ngFor="let group of row.number | numberGroups: row.serviceType"
+                class="digit-group">{{ group }}</span></span>
+              <span class="row-sub">
+                {{ row.operatorName }} · failed {{ row.rechargeAt | date: 'HH:mm' }}<span
+                *ngIf="row.failureReason"> · “{{ row.failureReason }}”</span>
+              </span>
+            </span>
+            <span class="row-money">
+              <span class="mono row-amount">₹{{ row.amount }}</span>
+            </span>
+            <a class="btn btn-small" [routerLink]="['..', 'worklist', row.rechargeId]">Sort it out</a>
+          </div>
+        </li>
+      </ul>
+    </section>
+
+    <!-- Never filtered by year: anything open shows, whenever it started. -->
+    <p class="tray-held">
+      <span>Money held against things not finished</span>
+      <span class="mono tray-held-figure">₹{{ heldHere | number: '1.2-2' }}</span>
+      <span class="tray-held-note">
+        Never filtered by year — anything open shows, whenever it started
+      </span>
+    </p>
+  </div>
+
+  <!-- Picking one up again: the same two buttons as the counter. -->
+  <div class="tray-side">
+    <section *ngIf="selected as row" class="panel panel-pad" aria-labelledby="pickup-heading">
+      <h2 id="pickup-heading" class="panel-kicker">Picking this one up again</h2>
+      <p class="mono pickup-number" [attr.aria-label]="row.number"><span
+        *ngFor="let group of row.number | numberGroups: row.serviceType"
+        class="digit-group">{{ group }}</span></p>
+      <p class="pickup-what">
+        <span class="pickup-operator">{{ row.operatorName }}</span>
+        <span class="pickup-sub">
+          ₹{{ row.amount }} · taken at {{ row.rechargeAt | date: 'HH:mm' }} · payment
+          <span class="mono">P-{{ row.paymentId }}</span>
+        </span>
+      </p>
+
+      <hr class="rule">
+
+      <h3 class="answer-heading">Did it go through?</h3>
+
+      <button type="button" class="answer answer-yes" [disabled]="answering"
+              aria-keyshortcuts="F8" (click)="markDone()">
+        <span class="answer-main">
+          <span class="answer-title">
+            Yes — via {{ routeOverride ? routeNameOf(routeOverride) : routeNameOf(row.routeCode) }}
+          </span>
+          <span class="answer-sub">the usual connection for {{ row.operatorName }}</span>
+        </span>
+        <span class="keycap keycap-on-dark" aria-hidden="true">F8</span>
+      </button>
+
+      <div class="route-switch" [class.is-called-out]="answerNeedsRoute" *ngIf="otherRoutes.length">
+        <label [attr.for]="'worklist-route'">Had to use a different connection?</label>
+        <select id="worklist-route" [(ngModel)]="routeOverride">
+          <option value="">{{ routeNameOf(row.routeCode) }} — the usual</option>
+          <option *ngFor="let route of otherRoutes" [value]="route.code">{{ route.name }}</option>
+        </select>
+      </div>
+
+      <button type="button" class="answer answer-no" [disabled]="answering"
+              aria-keyshortcuts="F9" (click)="markFailed()">
+        <span class="answer-main">
+          <span class="answer-title">No, it failed</span>
+          <span class="answer-sub">nothing leaves the wallet; their money stays with us</span>
+        </span>
+        <span class="keycap" aria-hidden="true">F9</span>
+      </button>
+
+      <div class="field">
+        <label for="worklist-vendor-ref">
+          Operator's reference <span class="optional">— optional</span>
+        </label>
+        <input id="worklist-vendor-ref" class="pay-input mono" type="text" autocomplete="off"
+               placeholder="paste if the app gave one" [(ngModel)]="vendorRef">
+      </div>
+
+      <p *ngIf="answerError" class="entry-error" role="alert">{{ answerError }}</p>
+
+      <p class="pickup-note">
+        The same two buttons as the counter, so there is one thing to learn and not two.
+        The money was taken at {{ row.rechargeAt | date: 'HH:mm' }} and is not touched again here.
+      </p>
+    </section>
+
+    <section *ngIf="!selected && awaiting.length" class="panel panel-pad">
+      <p class="pickup-empty">Pick a row on the left to answer it.</p>
+    </section>
+
+    <!-- Only failures are left, and they are resolved on their own screen. -->
+    <section *ngIf="!selected && !awaiting.length" class="panel panel-pad">
+      <p class="pickup-empty">
+        Nothing is waiting to be done. The failures on the left are sorted out one at a time,
+        on their own screen.
+      </p>
+    </section>
+  </div>
+</div>

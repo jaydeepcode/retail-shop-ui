@@ -1,0 +1,320 @@
+@use '../../shared/tokens' as t;
+
+:host {
+  display: block;
+  font-family: t.$sans;
+  color: t.$ink;
+}
+
+.history {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.mono { font-family: t.$mono; }
+
+// ------------------------------------------------- the filter
+
+.filters {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  padding: 14px 18px;
+  background: t.$surface;
+  border: 1px solid t.$border;
+  border-radius: 6px;
+  flex-wrap: wrap;
+}
+
+.filter {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+
+  label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: t.$ink-muted;
+  }
+
+  select,
+  .filter-input {
+    height: 40px;
+    box-sizing: border-box;
+    padding: 0 11px;
+    border: 1px solid t.$border;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 14px;
+    background: t.$surface;
+    color: t.$ink;
+  }
+
+  .filter-input.mono {
+    font-family: t.$mono;
+    width: 170px;
+  }
+}
+
+.filter-range {
+  margin-left: auto;
+  font-size: 12px;
+  color: t.$ink-muted;
+}
+
+// ------------------------------------------------- states
+
+.history-loading,
+.history-fault {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 0;
+  padding: 16px 20px;
+  background: t.$surface;
+  border: 1px solid t.$border;
+  border-radius: 6px;
+  font-size: 14px;
+  color: t.$ink-muted;
+}
+
+.history-fault {
+  border-left: 4px solid #a3201a;
+  color: #8a1c16;
+}
+
+.history-blank {
+  max-width: 600px;
+  padding: 30px 32px;
+  background: t.$surface;
+  border: 1px solid t.$border;
+  border-radius: 6px;
+}
+
+.history-blank-title {
+  margin: 0;
+  font-size: 21px;
+  font-weight: 600;
+}
+
+.history-blank-note {
+  margin: 10px 0 22px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: t.$ink-muted;
+}
+
+// ------------------------------------------------- the table
+
+.table-wrap {
+  background: t.$surface;
+  border: 1px solid t.$border;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+
+  th {
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: t.$ink-muted;
+    background: t.$surface-sunk;
+    border-bottom: 1px solid t.$border-light;
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 11px 14px;
+    border-bottom: 1px solid #f0f2f6;
+    vertical-align: top;
+  }
+
+  .num {
+    text-align: right;
+  }
+
+  tbody tr.is-bad {
+    background: #fdf6f5;
+  }
+
+  tbody tr.is-void td {
+    color: t.$ink-faint;
+  }
+}
+
+.when {
+  color: t.$ink-muted;
+  white-space: nowrap;
+}
+
+.when-time {
+  font-size: 12px;
+}
+
+.did {
+  display: block;
+
+  &.struck {
+    text-decoration: line-through;
+    color: t.$ink-faint;
+  }
+}
+
+.did-sub,
+.did-reason,
+.did-ref {
+  display: block;
+  margin-top: 3px;
+  font-size: 12px;
+  color: t.$ink-muted;
+}
+
+.did-reason {
+  color: #8a1c16;
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.badge-ok {
+  background: #def0e5;
+  color: #19653a;
+}
+
+.badge-warn {
+  background: #fff3df;
+  color: #8a4b00;
+}
+
+.badge-bad {
+  background: #f7e2e0;
+  color: #8a1c16;
+}
+
+.badge-muted {
+  background: #edeff2;
+  color: t.$ink-muted;
+}
+
+.table-foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-top: 1px solid t.$border-light;
+  background: t.$surface-sunk;
+  flex-wrap: wrap;
+}
+
+.foot-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: t.$ink-muted;
+}
+
+.foot-value {
+  margin-left: 7px;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.foot-spacer {
+  flex-grow: 1;
+}
+
+.foot-page {
+  font-size: 12px;
+  color: t.$ink-muted;
+}
+
+// ------------------------------------------------- notes
+
+.history-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.history-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin: 0;
+  padding: 14px 18px;
+  background: t.$surface;
+  border: 1px solid t.$border;
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: t.$ink-muted;
+}
+
+.history-note-gap {
+  border-left: 4px solid #e3a857;
+}
+
+.history-note-label {
+  flex-shrink: 0;
+  width: 150px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+// ------------------------------------------------- buttons
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  font-family: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
+
+.btn-dark {
+  height: 44px;
+  padding: 0 24px;
+  background: t.$ink;
+  color: #ffffff;
+  font-size: 15px;
+}
+
+.btn-small {
+  height: 36px;
+  padding: 0 14px;
+  border-color: t.$border;
+  background: t.$surface;
+  color: t.$ink;
+  font-size: 13px;
+}
+

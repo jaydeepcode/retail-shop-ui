@@ -1,0 +1,132 @@
+<!-- Artboard 5. The read side is real; the two resolutions have no endpoint yet. -->
+
+<p *ngIf="loading" class="fail-loading">Looking it up…</p>
+
+<p *ngIf="loadError" class="fail-fault" role="alert">{{ loadError }}</p>
+
+<section *ngIf="notAFailure && !loading" class="fail-gone" aria-labelledby="gone-heading">
+  <h2 id="gone-heading" class="fail-gone-title">Nothing to sort out here</h2>
+  <p class="fail-gone-note">
+    This recharge is not among the unresolved failures — either it never failed, or someone
+    has already dealt with it.
+  </p>
+  <a class="btn btn-dark" routerLink="../../worklist">Back to the worklist</a>
+</section>
+
+<div *ngIf="failure as row" class="fail">
+
+  <div class="fail-main">
+
+    <section class="card card-bad" aria-labelledby="fail-heading">
+      <p class="fail-badge-row">
+        <span class="fail-badge">FAILED</span>
+        <span class="fail-when">
+          {{ row.rechargeAt | date: 'HH:mm' }} on {{ row.rechargeAt | date: 'd MMM' }}<span
+          *ngIf="row.failureReason"> · “{{ row.failureReason }}”</span>
+        </span>
+      </p>
+
+      <h2 id="fail-heading" class="mono fail-number" [attr.aria-label]="row.number"><span
+        *ngFor="let group of row.number | numberGroups: row.serviceType"
+        class="digit-group">{{ group }}</span></h2>
+      <p class="fail-what">
+        <span class="fail-operator">{{ row.operatorName }}</span>
+        <span class="fail-sub">· {{ row.routeCode }}</span>
+      </p>
+      <ul *ngIf="paidBy.length" class="fail-paid">
+        <li *ngFor="let line of paidBy">
+          The customer paid <b class="mono">₹{{ line.amount | number: '1.2-2' }}</b>
+          {{ methodWord(line) }}<span *ngIf="line.customerName"> — {{ line.customerName }}</span>
+        </li>
+      </ul>
+
+      <div class="holding">
+        <p class="holding-label">We are holding</p>
+        <p class="mono holding-figure">₹{{ held | number: '1.2-2' }}</p>
+        <p class="holding-note">
+          Their money is still in the drawer. The recharge never happened, so nothing was
+          spent from the {{ row.operatorName }} wallet.
+        </p>
+      </div>
+    </section>
+
+    <!-- ⚠ Not a design choice. Endpoints #12 and #13 are not built. -->
+    <section class="card" aria-labelledby="now-heading">
+      <h3 id="now-heading" class="card-title">What happens now</h3>
+
+      <div class="choices">
+        <button type="button" class="choice" disabled
+                aria-describedby="resolution-blocked">
+          <span class="choice-title">Try again</span>
+          <span class="choice-sub">same number, any amount</span>
+        </button>
+        <button type="button" class="choice" disabled
+                aria-describedby="resolution-blocked">
+          <span class="choice-title">Give the money back</span>
+          <span class="choice-sub">all ₹{{ held | number: '1.2-2' }}</span>
+        </button>
+      </div>
+
+      <p id="resolution-blocked" class="blocked">
+        <b>Neither of these can be done yet.</b> Both need endpoints the counter slice did
+        not build — the retry at
+        <span class="mono">POST /recharge/recharges/{{ row.rechargeId }}/retry</span> and the
+        refund at <span class="mono">/refund</span>. Until they exist this failure stays open
+        and the money stays held, which is the correct state: nothing is lost, and the
+        worklist and the day summary both keep counting it.
+      </p>
+
+      <p class="blocked-why">
+        It is not approximated here on purpose. A retry built on the counter would post a
+        second payment, and the one rule this screen exists to protect is that a retry rides
+        on the payment already taken and never creates a new one.
+      </p>
+    </section>
+  </div>
+
+  <div class="fail-side">
+    <section class="card" aria-labelledby="record-heading">
+      <h3 id="record-heading" class="card-title">What is on record</h3>
+
+      <dl class="record">
+        <div>
+          <dt>This recharge</dt>
+          <dd class="mono">{{ row.reference }}</dd>
+        </div>
+        <div>
+          <dt>Original payment</dt>
+          <dd class="mono">
+            {{ payment ? payment.paymentReference : 'P-' + row.paymentId }} — unchanged
+          </dd>
+        </div>
+        <div *ngIf="payment as transaction">
+          <dt>Taken by</dt>
+          <dd>{{ transaction.staff }} at {{ transaction.takenAt | date: 'HH:mm' }}</dd>
+        </div>
+        <div *ngIf="payment as transaction">
+          <dt>Whole payment</dt>
+          <dd class="mono">₹{{ transaction.totalDue | number: '1.2-2' }}</dd>
+        </div>
+      </dl>
+
+      <!-- A payment may have covered a second recharge that went through perfectly well. -->
+      <div *ngIf="payment && payment.recharges.length > 1" class="siblings">
+        <p class="siblings-head">The rest of that payment</p>
+        <ul>
+          <li *ngFor="let sibling of payment.recharges">
+            <span class="mono">{{ sibling.number }}</span>
+            <span>{{ sibling.operatorName }} ₹{{ sibling.amount }}</span>
+            <span class="siblings-status">{{ sibling.status === 'COMPLETED' ? 'done'
+              : sibling.status === 'FAILED' ? 'failed'
+              : sibling.status === 'VOIDED' ? 'voided' : 'waiting' }}</span>
+          </li>
+        </ul>
+      </div>
+
+      <p class="record-note">
+        Only the “a recharge happened” half is in question. The cash is recorded and settles
+        through the held account either way.
+      </p>
+    </section>
+  </div>
+</div>

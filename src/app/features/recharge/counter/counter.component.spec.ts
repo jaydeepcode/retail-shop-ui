@@ -457,6 +457,84 @@ describe('CounterComponent', () => {
     expect(counter.canTakePayment).toBe(true);
   });
 
+  // ------------------------------------------------- the split cash row's two boxes
+
+  /**
+   * The two cash boxes mean different things and the screen has to say so: the first is
+   * the share of the bill settled in cash, the second is what was physically handed over.
+   * Artboard 3 draws the difference as "back ₹200", and without it the row is unreadable
+   * — which is exactly the question it prompted.
+   */
+  it('labels both cash boxes, not just the tender', () => {
+    addJioLine();
+    counter.toggleMethod('CREDIT');
+    fixture.detectChanges();
+    const labels = Array.from(fixture.nativeElement.querySelectorAll('.pay-row .pay-row-sub'))
+      .map((l) => (l as HTMLElement).textContent?.trim());
+    expect(labels).toContain('of the bill');
+    expect(labels).toContain('taken');
+  });
+
+  it('every split input is reachable by its own label', () => {
+    addJioLine();
+    counter.toggleMethod('CREDIT');
+    fixture.detectChanges();
+    const unlabelled = Array.from(
+      fixture.nativeElement.querySelectorAll('.pay-row input')
+    ).filter((el) => {
+      const input = el as HTMLInputElement;
+      const byFor = input.id && fixture.nativeElement.querySelector(`label[for="${input.id}"]`);
+      return !byFor && !input.getAttribute('aria-label');
+    });
+    expect(unlabelled.length).toBe(0);
+  });
+
+  it('shows what goes back once a tender is typed', () => {
+    addJioLine();
+    counter.toggleMethod('CREDIT');
+    counter.line('CASH')!.amount = '100';
+    counter.line('CASH')!.amountTendered = '500';
+    fixture.detectChanges();
+    expect(counter.provisionalChange(counter.line('CASH')!)).toBe(400);
+    expect(fixture.nativeElement.textContent).toContain('back ₹400.00');
+  });
+
+  /** §14.5: a rupee is not change — nobody hands it over and the customer waves it away. */
+  it('says nothing about change below the configured threshold', () => {
+    addJioLine();
+    counter.toggleMethod('CREDIT');
+    counter.line('CASH')!.amount = '100';
+    counter.line('CASH')!.amountTendered = '101';
+    fixture.detectChanges();
+    expect(counter.provisionalChange(counter.line('CASH')!)).toBeNull();
+    expect(fixture.nativeElement.textContent).not.toContain('back ₹');
+  });
+
+  it('shows nothing when no tender has been typed yet', () => {
+    addJioLine();
+    counter.toggleMethod('CREDIT');
+    counter.line('CASH')!.amount = '100';
+    expect(counter.provisionalChange(counter.line('CASH')!)).toBeNull();
+  });
+
+  it('catches a tender below its own cash line before the server refuses it', () => {
+    addJioLine();
+    counter.toggleMethod('CREDIT');
+    counter.line('CASH')!.amount = '200';
+    counter.line('CASH')!.amountTendered = '100';
+    counter.line('CREDIT')!.amount = '99';
+    counter.chooseCustomer({
+      customerId: 403, name: 'Ramesh Pawar', contactNumber: '9960448201',
+      outstanding: 340, advanceHeld: 0, oldestDebtDays: 54, warn: true
+    });
+    fixture.detectChanges();
+    expect(counter.tenderIsShort(counter.line('CASH')!)).toBe(true);
+    // The rows sum, so only the short tender is holding it back.
+    expect(counter.leftToAllocate).toBe(0);
+    expect(counter.canTakePayment).toBe(false);
+    expect(fixture.nativeElement.textContent).toContain('less than the');
+  });
+
   // ---------------------------------------------------------------- credit
 
   function creditCustomer(overrides = {}) {

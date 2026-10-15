@@ -486,6 +486,48 @@ export class CounterComponent implements OnInit, OnDestroy {
     return this.payment.length === 1;
   }
 
+  /** What this row settles in cash: the typed share, or the whole basket on its own. */
+  cashLineOf(row: PaymentLine): number {
+    return this.isSingleMethod ? this.provisionalTotal : num(row.amount);
+  }
+
+  /**
+   * What goes back to the customer, shown on the row before the sale commits.
+   *
+   * Artboard 3 draws this as "back ₹200", and it is what makes the two cash boxes
+   * readable — the share of the bill, what was handed over, and the difference.
+   *
+   * ⚠ §14.5's threshold still applies: a rupee is not change, nobody hands it over, and
+   * showing it the same way as ₹201 is what made it noise. The threshold is read from
+   * `config.changeDisplayThreshold` rather than hard-coded, which is why config carries
+   * it. After the sale the screen reads the server's `changeDisplayed` instead and never
+   * this — the authoritative flag is the server's, so two clients cannot disagree.
+   */
+  provisionalChange(row: PaymentLine): number | null {
+    if (row.method !== 'CASH' || row.amountTendered == null || row.amountTendered === '') {
+      return null;
+    }
+    const paise = Math.round(num(row.amountTendered) * 100) - Math.round(this.cashLineOf(row) * 100);
+    if (paise <= 0) {
+      return null;
+    }
+    const threshold = Math.round((this.config?.changeDisplayThreshold ?? 0) * 100);
+    return paise >= threshold ? paise / 100 : null;
+  }
+
+  /**
+   * Whether less cash was taken than the cash line claims.
+   *
+   * The server refuses this with `INVALID_TENDER`; saying so on the row means the staff
+   * fix it before pressing F12 rather than after being refused.
+   */
+  tenderIsShort(row: PaymentLine): boolean {
+    if (row.method !== 'CASH' || row.amountTendered == null || row.amountTendered === '') {
+      return false;
+    }
+    return Math.round(num(row.amountTendered) * 100) < Math.round(this.cashLineOf(row) * 100);
+  }
+
   get allocatedTotal(): number {
     return this.isSingleMethod ? this.provisionalTotal : allocated(this.payment);
   }
@@ -677,6 +719,11 @@ export class CounterComponent implements OnInit, OnDestroy {
     }
     const credit = this.line('CREDIT');
     if (credit && !credit.customer) {
+      return false;
+    }
+    // A tender below its own cash line is INVALID_TENDER server-side, so it is caught
+    // here rather than after the refusal.
+    if (this.payment.some((line) => this.tenderIsShort(line))) {
       return false;
     }
     // The lines have to add up before the button works, which is how a short payment

@@ -668,6 +668,9 @@ select {
 .pay-row-sub {
   font-size: 11px;
   color: t.$ink-muted;
+  // The row is tight; without this "of the bill" wraps on the cash row but not the
+  // credit one, so the two rows stop lining up.
+  white-space: nowrap;
 }
 
 .pay-row .pay-input {
@@ -1031,4 +1034,18 @@ select {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.pay-change {
+  font-size: 13px;
+  font-weight: 600;
+  color: #19653a;
+  white-space: nowrap;
+}
+
+.pay-short {
+  font-size: 12px;
+  font-weight: 600;
+  color: #8a1c16;
+  white-space: nowrap;
 }

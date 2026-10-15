@@ -286,18 +286,32 @@
         </div>
 
         <!-- The split case: one row per method, each typed, and they must sum. -->
+        <!-- Every row is "how much of the bill by this method". The cash row then adds
+             what was physically handed over, and what goes back — the three together are
+             what make the two boxes readable. -->
         <div *ngIf="!isSingleMethod" class="pay-rows">
           <div *ngFor="let row of payment" class="pay-row">
             <span class="pay-row-label">{{ row.method === 'CREDIT' ? 'Credit' : row.method }}</span>
-            <input class="pay-input mono" type="text" inputmode="numeric" autocomplete="off"
-                   [attr.aria-label]="row.method + ' amount of the sale'" [(ngModel)]="row.amount">
+
+            <label class="pay-row-sub" [attr.for]="'counter-split-' + row.method">of the bill</label>
+            <input [id]="'counter-split-' + row.method" class="pay-input mono" type="text"
+                   inputmode="numeric" autocomplete="off" [(ngModel)]="row.amount">
+
             <ng-container *ngIf="row.method === 'CASH'">
-              <label class="pay-row-sub" [attr.for]="'counter-tendered-split'">taken</label>
+              <label class="pay-row-sub" for="counter-tendered-split">taken</label>
               <input id="counter-tendered-split" class="pay-input mono" type="text"
                      inputmode="numeric" autocomplete="off" [(ngModel)]="row.amountTendered">
+              <!-- Artboard 3's "back ₹200". Provisional, like the basket total; §14.5's
+                   threshold still applies, so a rupee of change is never mentioned. -->
+              <span *ngIf="provisionalChange(row) as back" class="pay-change">back ₹{{ back | number: '1.2-2' }}</span>
+              <span *ngIf="tenderIsShort(row)" class="pay-short">
+                less than the ₹{{ cashLineOf(row) | number: '1.2-2' }} cash line
+              </span>
             </ng-container>
+
             <input *ngIf="row.method === 'UPI'" class="pay-input pay-ref mono" type="text"
-                   autocomplete="off" aria-label="UPI reference" [(ngModel)]="row.reference">
+                   autocomplete="off" aria-label="UPI reference" placeholder="reference"
+                   [(ngModel)]="row.reference">
           </div>
         </div>
 

@@ -128,18 +128,6 @@
   }
 }
 
-.keycap {
-  font-family: t.$mono;
-  font-size: 11px;
-  color: t.$ink-muted;
-}
-
-.keycap-on-dark {
-  color: inherit;
-  opacity: 0.85;
-  font-size: 13px;
-}
-
 // ---------------------------------------------------------------- fields
 
 .field {
@@ -892,76 +880,6 @@ select {
   font-weight: 600;
 }
 
-.answer {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 16px 20px;
-  border-radius: 5px;
-  text-align: left;
-  font-family: inherit;
-  cursor: pointer;
-
-  &:disabled {
-    opacity: 0.6;
-    cursor: progress;
-  }
-}
-
-.answer-yes {
-  border: 0;
-  background: #19653a;
-  color: #ffffff;
-}
-
-.answer-no {
-  border: 1px solid #a3201a;
-  background: t.$surface;
-  color: #a3201a;
-}
-
-.answer-main {
-  flex-grow: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.answer-title {
-  font-size: 18px;
-  font-weight: 600;
-}
-
-.answer-sub {
-  font-size: 12px;
-  opacity: 0.9;
-}
-
-.route-switch {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 13px;
-  border: 1px solid t.$border-light;
-  border-radius: 4px;
-  background: t.$surface-sunk;
-  flex-wrap: wrap;
-
-  label {
-    font-size: 13px;
-    color: t.$ink-muted;
-    flex-grow: 1;
-  }
-
-  select {
-    height: 32px;
-    padding: 0 8px;
-    border: 1px solid t.$border;
-    border-radius: 4px;
-    font-size: 13px;
-  }
-}
-
 .set-aside {
   display: flex;
   align-items: center;
@@ -1050,14 +968,6 @@ select {
   white-space: nowrap;
 }
 
-// ---------------------------------------------------------------- grouped digits
-
-// Adjacent spans with a margin, never spaces: the gap is visual only, so selecting the
-// number still copies 9430043541 — which is what the operator's app will accept.
-.digit-group + .digit-group {
-  margin-left: 0.34em;
-}
-
 .held-number-row {
   display: flex;
   align-items: center;
@@ -1093,9 +1003,31 @@ select {
   color: #e3a857;
 }
 
-// FLOAT_ACCOUNT_NOT_DERIVABLE is fixed by choosing another route, so the picker is
-// called out rather than leaving the staff to find it under the error.
-.route-switch.is-called-out {
-  border-color: #e3a857;
-  background: #fff3df;
+// ---------------------------------------------------------------- no connection found
+
+.no-connection {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  max-width: 560px;
+  margin-top: 4px;
+  padding: 14px 16px;
+  border: 1px solid t.$border;
+  border-left: 4px solid #e3a857;
+  border-radius: 5px;
+  background: t.$surface-sunk;
+}
+
+.no-connection-head {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.no-connection-note {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: t.$ink-muted;
 }

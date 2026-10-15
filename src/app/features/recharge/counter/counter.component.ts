@@ -354,6 +354,25 @@ export class CounterComponent implements OnInit, OnDestroy {
     }
   }
 
+  /**
+   * A search that came back with nothing.
+   *
+   * ⚠ The screen must NOT claim to know why. `/recharge/tv-connections` reads
+   * `rc_dishtv_dtls`, which holds boxes recharged before — 458 of them on the restore and
+   * none at all on a fresh database — and there is no count endpoint, so "nothing matches"
+   * and "nothing is on file" are indistinguishable from here. Saying "no connection
+   * matches that" asserts the first and reads as a broken search when it is the second.
+   * So it says what is true of both and points at the way through.
+   */
+  get connectionSearchFoundNothing(): boolean {
+    return (
+      this.connectionQuery.trim().length >= 2 &&
+      !this.connectionSearching &&
+      !this.connectionResults.length &&
+      !this.chosenConnection
+    );
+  }
+
   chooseConnection(connection: TvConnectionResponse): void {
     this.chosenConnection = connection;
     this.connectionResults = [];

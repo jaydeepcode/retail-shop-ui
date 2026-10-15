@@ -612,6 +612,60 @@ describe('CounterComponent', () => {
     expect(counter.answerNeedsRoute).toBe(false);
   });
 
+  // ------------------------------------------------- TV, when nothing is on file
+
+  /**
+   * ⚠ `rc_dishtv_dtls` holds boxes recharged before — 458 on the restore, none at all on a
+   * fresh database — and there is no count endpoint. So "nothing matches" and "nothing is
+   * on file" are indistinguishable from the client, and claiming the first reads as a
+   * broken search when it is the second. It says what is true of both instead.
+   */
+  it('does not claim a failed TV search means no such connection exists', () => {
+    counter.chooseService('TV');
+    // The lookup is debounced, so the state the empty result leaves behind is set directly.
+    counter.connectionSearching = false;
+    counter.connectionResults = [];
+    counter.connectionQuery = 'kulkarni';
+    fixture.detectChanges();
+
+    expect(counter.connectionSearchFoundNothing).toBe(true);
+    const text = fixture.nativeElement.textContent as string;
+    expect(text).toContain('Nothing on file for');
+    expect(text).toContain('only holds boxes recharged here before');
+    // Never the bare claim that it does not exist.
+    expect(text).not.toContain('No connection matches that');
+  });
+
+  it('offers typing the box number as the way through, not as a footnote', () => {
+    counter.chooseService('TV');
+    counter.connectionSearching = false;
+    counter.connectionResults = [];
+    counter.connectionQuery = 'kulkarni';
+    fixture.detectChanges();
+
+    const action = fixture.nativeElement.querySelector('.no-connection .btn') as HTMLButtonElement;
+    expect(action).toBeTruthy();
+    expect(action.textContent?.trim()).toBe('Type the box number');
+    action.click();
+    fixture.detectChanges();
+    expect(counter.tvMode).toBe('manual');
+  });
+
+  it('a hand-typed box still sells, with our charge defaulted on', () => {
+    counter.chooseService('TV');
+    counter.enterConnectionByHand();
+    counter.numberText = '02700431198';
+    counter.chooseOperator('DISHTV');
+    counter.amountText = '240';
+    counter.addToBasket();
+
+    expect(counter.basket.length).toBe(1);
+    expect(counter.basket[0].serviceType).toBe('TV');
+    // Untouched, so the server applies its own ₹10 — the field is not sent.
+    expect(counter.basket[0].surcharge).toBeUndefined();
+    expect(counter.provisionalTotal).toBe(250);
+  });
+
   // ------------------------------------------------- the number staff have to retype
 
   function settleAndWait() {

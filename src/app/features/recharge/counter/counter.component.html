@@ -67,11 +67,23 @@
               </li>
             </ul>
 
-            <p *ngIf="connectionQuery.trim().length >= 2 && !connectionSearching && !connectionResults.length && !chosenConnection"
-               class="hint hint-plain">No connection matches that.</p>
+            <!-- ⚠ A box that is not on file still has to be sellable, and the screen
+                 cannot tell "nothing matches" from "nothing is on file" — there is no
+                 count endpoint. So it says what is true either way and offers the path
+                 through as the main action rather than a link underneath. -->
+            <div *ngIf="connectionSearchFoundNothing" class="no-connection">
+              <p class="no-connection-head">Nothing on file for “{{ connectionQuery.trim() }}”</p>
+              <p class="no-connection-note">
+                This list only holds boxes recharged here before, so a new customer will not
+                be in it. Type the box number and pick the operator instead — the sale works
+                the same.
+              </p>
+              <button type="button" class="btn btn-dark btn-small" (click)="enterConnectionByHand()">
+                Type the box number
+              </button>
+            </div>
 
-            <!-- A box that is not among rc_dishtv_dtls' 458 rows still has to be sellable. -->
-            <p class="field-aside">
+            <p *ngIf="!connectionSearchFoundNothing" class="field-aside">
               <button type="button" class="link" (click)="enterConnectionByHand()">
                 Not in the list — type the box number instead
               </button>

@@ -17,7 +17,12 @@ import {
 } from '../model/recharge.models';
 import { newIdempotencyKey } from '../services/idempotency-key';
 import { RechargeApiService } from '../services/recharge-api.service';
-import { asExistingCustomer, errorSentence, firstBadRechargeIndex } from '../services/recharge-error';
+import {
+  asExistingCustomer,
+  errorSentence,
+  firstBadRechargeIndex,
+  isRouteFixable
+} from '../services/recharge-error';
 import {
   allocated,
   basketTotal,
@@ -104,6 +109,8 @@ export class CounterComponent implements OnInit, OnDestroy {
   routeOverride = '';
   answering = false;
   answerError = '';
+  /** The failure is one a different route would fix, so the picker is called out. */
+  answerNeedsRoute = false;
   /** What has already been answered, so the screen can show progress on a 2-line basket. */
   answered: RechargeResponse[] = [];
 
@@ -834,6 +841,7 @@ export class CounterComponent implements OnInit, OnDestroy {
     }
     this.answering = true;
     this.answerError = '';
+    this.answerNeedsRoute = false;
     const request: MarkCompleteRequest = {};
     if (this.vendorRef.trim()) {
       request.vendorRef = this.vendorRef.trim();
@@ -850,6 +858,7 @@ export class CounterComponent implements OnInit, OnDestroy {
         error: (error) => {
           this.answering = false;
           this.answerError = errorSentence(error);
+          this.answerNeedsRoute = isRouteFixable(error);
         }
       });
   }
@@ -880,6 +889,7 @@ export class CounterComponent implements OnInit, OnDestroy {
     this.answered.push(answered);
     this.vendorRef = '';
     this.routeOverride = '';
+    this.answerNeedsRoute = false;
     this.clearCopyState();
 
     // One at a time: three recharges mean three calls and three outcomes. There is

@@ -540,7 +540,7 @@
         <!-- The route rides on "yes" — it is the first moment anyone knows which
              connection was used, and an override is 2 recharges in six months, so it
              is one small line rather than a control of its own. -->
-        <div class="route-switch" *ngIf="otherRoutes.length">
+        <div class="route-switch" [class.is-called-out]="answerNeedsRoute" *ngIf="otherRoutes.length">
           <label for="counter-route">Had to use a different connection?</label>
           <select id="counter-route" [(ngModel)]="routeOverride">
             <option value="">{{ recharge.routeName }} — the usual</option>

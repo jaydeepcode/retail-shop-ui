@@ -550,6 +550,68 @@ describe('CounterComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('less than the');
   });
 
+  /**
+   * ⚠ Completing on a route with no wallet behind it — BSNL or any TV operator on Direct.
+   * The server's own message names the operator, the route and what to use instead, so it
+   * is passed through unchanged; the screen's job is to point at the control that fixes it.
+   */
+  it('points at the route picker when the route has no wallet', () => {
+    addJioLine();
+    counter.takePayment();
+    http.expectOne(`${base}/transactions`).flush(transaction());
+    fixture.detectChanges();
+
+    counter.markDone();
+    http.expectOne(`${base}/recharges/99051/complete`).flush(
+      {
+        code: 'FLOAT_ACCOUNT_NOT_DERIVABLE',
+        message: 'BSNL has no DIRECT connection, so there is no FLOAT_BSNL wallet to draw from'
+          + ' — complete it on A1 Topup instead.',
+        traceId: 'a',
+        details: { operatorCode: 'BSNL', routeCode: 'DIRECT', derivedAccount: 'FLOAT_BSNL' }
+      },
+      { status: 422, statusText: 'Unprocessable Entity' });
+    fixture.detectChanges();
+
+    expect(counter.answerNeedsRoute).toBe(true);
+    // The server's sentence, not a reworded one — it is better than anything composed here.
+    expect(counter.answerError).toContain('complete it on A1 Topup instead');
+    expect(fixture.nativeElement.querySelector('.route-switch.is-called-out')).toBeTruthy();
+  });
+
+  it('stops pointing at the route picker once another answer is tried', () => {
+    addJioLine();
+    counter.takePayment();
+    http.expectOne(`${base}/transactions`).flush(transaction());
+    fixture.detectChanges();
+
+    counter.markDone();
+    http.expectOne(`${base}/recharges/99051/complete`).flush(
+      { code: 'FLOAT_ACCOUNT_NOT_DERIVABLE', message: 'no wallet', traceId: 'a' },
+      { status: 422, statusText: 'Unprocessable Entity' });
+    expect(counter.answerNeedsRoute).toBe(true);
+
+    counter.routeOverride = 'A1TOPUP';
+    counter.markDone();
+    expect(counter.answerNeedsRoute).toBe(false);
+    const retry = http.expectOne(`${base}/recharges/99051/complete`);
+    expect(retry.request.body).toEqual({ routeCode: 'A1TOPUP' });
+    retry.flush(transaction().recharges[0]);
+  });
+
+  it('does not point at the route for an unrelated failure', () => {
+    addJioLine();
+    counter.takePayment();
+    http.expectOne(`${base}/transactions`).flush(transaction());
+    fixture.detectChanges();
+
+    counter.markDone();
+    http.expectOne(`${base}/recharges/99051/complete`).flush(
+      { code: 'NO_COMMISSION_RATE', message: 'no rate', traceId: 'a', details: { operatorCode: 'BIGTV' } },
+      { status: 422, statusText: 'Unprocessable Entity' });
+    expect(counter.answerNeedsRoute).toBe(false);
+  });
+
   // ------------------------------------------------- the number staff have to retype
 
   function settleAndWait() {

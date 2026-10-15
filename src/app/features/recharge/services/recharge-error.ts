@@ -136,6 +136,17 @@ export function fieldErrorsByPath(error: unknown): Map<string, string> {
   return byPath;
 }
 
+/**
+ * Whether this failure is one the staff fix by choosing a different route.
+ *
+ * `FLOAT_ACCOUNT_NOT_DERIVABLE` is the only such code: completing on a route with no
+ * wallet behind it. Its own message already names the operator, the route and the route
+ * to use instead, so nothing is reworded — the screen just points at the control.
+ */
+export function isRouteFixable(error: unknown): boolean {
+  return errorCode(error) === 'FLOAT_ACCOUNT_NOT_DERIVABLE';
+}
+
 /** The basket index a `fieldErrors` path names, or `null` when it names no line. */
 export function firstBadRechargeIndex(error: unknown): number | null {
   for (const field of fieldErrorsByPath(error).keys()) {

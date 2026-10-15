@@ -1092,3 +1092,10 @@ select {
   font-size: 12px;
   color: #e3a857;
 }
+
+// FLOAT_ACCOUNT_NOT_DERIVABLE is fixed by choosing another route, so the picker is
+// called out rather than leaving the staff to find it under the error.
+.route-switch.is-called-out {
+  border-color: #e3a857;
+  background: #fff3df;
+}

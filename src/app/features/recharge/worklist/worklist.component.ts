@@ -7,7 +7,7 @@ import {
   RouteConfig
 } from '../model/recharge.models';
 import { RechargeApiService } from '../services/recharge-api.service';
-import { errorSentence } from '../services/recharge-error';
+import { errorSentence, isRouteFixable } from '../services/recharge-error';
 
 /**
  * The worklist — artboard 4, "the leftover tray, not a queue".
@@ -45,6 +45,8 @@ export class WorklistComponent implements OnInit, OnDestroy {
   routeOverride = '';
   answering = false;
   answerError = '';
+  /** The failure is one a different route would fix, so the picker is called out. */
+  answerNeedsRoute = false;
 
   private readonly subscriptions = new Subscription();
 
@@ -127,6 +129,7 @@ export class WorklistComponent implements OnInit, OnDestroy {
     this.vendorRef = '';
     this.routeOverride = '';
     this.answerError = '';
+    this.answerNeedsRoute = false;
   }
 
   routeNameOf(code: string): string {
@@ -162,6 +165,7 @@ export class WorklistComponent implements OnInit, OnDestroy {
     }
     this.answering = true;
     this.answerError = '';
+    this.answerNeedsRoute = false;
     // Keys are left out rather than set to undefined, so the body carries only what was
     // actually answered — the route override is the §14.6 moment and nothing else.
     const request: MarkCompleteRequest = {};
@@ -178,6 +182,7 @@ export class WorklistComponent implements OnInit, OnDestroy {
         error: (error) => {
           this.answering = false;
           this.answerError = errorSentence(error);
+          this.answerNeedsRoute = isRouteFixable(error);
         }
       });
   }

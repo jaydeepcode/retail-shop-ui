@@ -63,6 +63,13 @@ export type ErrorCode =
   | 'REFUND_MODE_NOT_AVAILABLE'
   | 'TOO_MANY_CREDIT_LINES'
   | 'NO_COMMISSION_RATE'
+  /**
+   * 422 on COMPLETION: this operator and route do not resolve to a wallet the shop holds.
+   * Raised for a route with no rule (`SARAVATE`) and for a `DIRECT` pairing with an
+   * operator that has no direct connection — BSNL and every TV operator (§2.4:86). The
+   * staff can act on it by choosing another route, so the screen points at that control.
+   */
+  | 'FLOAT_ACCOUNT_NOT_DERIVABLE'
   | 'REASON_REQUIRED'
   // 500
   | 'INTERNAL_ERROR';

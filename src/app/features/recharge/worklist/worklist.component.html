@@ -123,7 +123,7 @@
         <span class="keycap keycap-on-dark" aria-hidden="true">F8</span>
       </button>
 
-      <div class="route-switch" *ngIf="otherRoutes.length">
+      <div class="route-switch" [class.is-called-out]="answerNeedsRoute" *ngIf="otherRoutes.length">
         <label [attr.for]="'worklist-route'">Had to use a different connection?</label>
         <select id="worklist-route" [(ngModel)]="routeOverride">
           <option value="">{{ routeNameOf(row.routeCode) }} — the usual</option>

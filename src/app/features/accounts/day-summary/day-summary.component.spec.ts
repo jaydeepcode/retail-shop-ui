@@ -76,8 +76,33 @@ describe('DaySummaryComponent', () => {
     respond(summary());
     expect(day.booksExpect).toBe(3104);
     const text = fixture.nativeElement.textContent as string;
-    expect(text).toContain('The books expect the till to hold');
+    expect(text).toContain('The books say the recharge till took in');
     expect(text).toContain('3,104.00');
+  });
+
+  /**
+   * ⚠ The label follows the figure, because the figure is a NET movement now.
+   *
+   * A day with no cash sales that refunds an earlier day's failure moves cash OUT, and the
+   * lead figure is negative. "The books expect the till to hold ₹-350.00" is not a
+   * statement anyone can act on. `tillSourcesAgree` is correctly quiet here — the day is
+   * not wrong, it is just not a holding.
+   */
+  it('changes the label on a day that only paid cash out', () => {
+    respond(summary({
+      cashCollectedToday: -350,
+      cashPaidOutToday: 350,
+      tenderMix: {},
+      takings: [],
+      totalTakings: 0,
+      totalSurcharge: 0,
+      totalCollected: 0
+    }));
+
+    expect(day.tillSourcesAgree).toBe(true);
+    const text = fixture.nativeElement.textContent as string;
+    expect(text).toContain('cash moved OUT today');
+    expect(text).not.toContain('expect the till to hold');
   });
 
   /**

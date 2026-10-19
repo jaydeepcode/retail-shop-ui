@@ -3,7 +3,7 @@ import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testin
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { RouterTestingModule } from '@angular/router/testing';
-import { of } from 'rxjs';
+import { BehaviorSubject, of } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { SectionChromeModule } from '../../shared/section-chrome.module';
 import {
@@ -77,18 +77,17 @@ describe('FailureComponent', () => {
   let fixture: ComponentFixture<FailureComponent>;
   let failure: FailureComponent;
   let http: HttpTestingController;
+  // ⚠ A subject, not `of`, so a test can route to a DIFFERENT :failedId on the same
+  // component instance — which is what Angular does, and what finding 9 was about.
+  let params: BehaviorSubject<ReturnType<typeof convertToParamMap>>;
   const base = `${environment.apiUrl}/recharge`;
 
   beforeEach(async () => {
+    params = new BehaviorSubject(convertToParamMap({ failedId: '99051' }));
     await TestBed.configureTestingModule({
       imports: [HttpClientTestingModule, FormsModule, RouterTestingModule, SectionChromeModule],
       declarations: [FailureComponent, NumberGroupsPipe],
-      providers: [
-        {
-          provide: ActivatedRoute,
-          useValue: { paramMap: of(convertToParamMap({ failedId: '99051' })) }
-        }
-      ]
+      providers: [{ provide: ActivatedRoute, useValue: { paramMap: params } }]
     }).compileComponents();
 
     fixture = TestBed.createComponent(FailureComponent);
@@ -379,6 +378,74 @@ describe('FailureComponent', () => {
     expect(failure.refundMode).toBeNull();
   });
 
+  /**
+   * ⚠ Pressing Change and typing the SAME name used to be dropped as a duplicate, so the
+   * screen told the staff member "Nobody by that name or mobile" about a customer who
+   * exists — with the refund unsendable until they typed something else.
+   */
+  it('finds the same customer again after Change', fakeAsync(() => {
+    load(item(), [line({ method: 'UPI', amount: 250, amountTendered: null, changeGiven: null })]);
+    failure.openRefund();
+
+    failure.onCustomerQuery('asha');
+    tick(250);
+    http.expectOne((r) => r.url === `${base}/customers`).flush([{
+      customerId: 4822, name: 'Asha Kale', contactNumber: '9823022222',
+      outstanding: 0, advanceHeld: 0, oldestDebtDays: null, warn: false
+    }]);
+    failure.chooseCustomer(failure.customerResults[0]);
+    tick(250);
+
+    failure.clearCustomer();
+    tick(250);
+
+    failure.onCustomerQuery('asha');
+    tick(250);
+    const again = http.expectOne((r) => r.url === `${base}/customers`);
+    expect(again.request.params.get('query')).toBe('asha');
+    again.flush([]);
+  }));
+
+  /**
+   * ⚠ An EMPTY `details.available` is truthy, so it used to replace the derived list and
+   * leave the panel with no mode buttons at all, permanently unsendable and silent.
+   */
+  it('keeps its own modes when the server sends an empty available list', () => {
+    load();
+    failure.openRefund();
+    failure.chooseRefundMode('CASH');
+    failure.submitRefund();
+
+    http.expectOne(`${base}/recharges/99051/refund`).flush(
+      {
+        code: 'REFUND_MODE_NOT_AVAILABLE',
+        message: 'CASH is not available here.',
+        details: { requested: 'CASH', available: [] }
+      },
+      { status: 422, statusText: 'Unprocessable Entity' }
+    );
+    fixture.detectChanges();
+
+    expect(failure.residualModes.length).toBeGreaterThan(0);
+    expect(fixture.nativeElement.querySelectorAll('.mode').length).toBeGreaterThan(0);
+  });
+
+  /**
+   * ⚠ `RetryRechargeRequest` has no top-level note — it hangs off the settlement, and an
+   * equal-amount retry sends no settlement. The panel OPENS on that case, so a note
+   * offered there would be typed and silently dropped.
+   */
+  it('does not offer a note on the retry that cannot carry one', () => {
+    load();
+    failure.openRetry();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('#retry-note')).toBeNull();
+
+    failure.retryAmount = 199;
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('#retry-note')).not.toBeNull();
+  });
+
   // ------------------------------------------------- losing the race
 
   /**
@@ -425,7 +492,10 @@ describe('FailureComponent', () => {
       topUpTakenAs: null,
       credit: null
     });
-    tick();
+    // ⚠ 250, not 0. `chooseDifferenceMode` clears any chosen customer, and that clear is
+    // now an event on the search probe — which is what lets `switchMap` cancel a lookup
+    // already in flight. It carries the probe's debounce with it.
+    tick(250);
     fixture.detectChanges();
 
     expect(failure.settled).toBe(true);
@@ -474,6 +544,34 @@ describe('FailureComponent', () => {
     });
 
     expect(failure.outcomeSentence).toBe('₹250.00 kept on their account.');
+  });
+
+  /**
+   * ⚠ Angular REUSES this component when only `:failedId` changes, so a resolution
+   * recorded for one recharge left its "Sorted" card and its outcome sentence on screen
+   * for the next one — with the retry and refund choices hidden behind `settled`.
+   */
+  it('does not carry one recharge’s outcome onto the next', () => {
+    load();
+    failure.openRefund();
+    failure.chooseRefundMode('CASH');
+    failure.submitRefund();
+    http.expectOne(`${base}/recharges/99051/refund`).flush({
+      recharge: item(), amount: 250, mode: 'CASH', credit: null
+    });
+    fixture.detectChanges();
+    expect(failure.settled).toBe(true);
+
+    // Route to a different failure on the same instance.
+    params.next(convertToParamMap({ failedId: '99052' }));
+    load(item({ rechargeId: 99052, reference: 'R-99052' }));
+
+    expect(failure.settled).toBe(false);
+    expect(failure.outcomeSentence).toBe('');
+    const text = fixture.nativeElement.textContent as string;
+    expect(text).not.toContain('Sorted');
+    // And the resolutions are offered again for the new one.
+    expect(fixture.nativeElement.querySelectorAll('.choice').length).toBe(2);
   });
 
   it('says a refund is the end of the line', () => {

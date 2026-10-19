@@ -113,26 +113,79 @@ export class CreditBookComponent implements OnInit, OnDestroy {
   statementError = '';
   statementPage = 0;
 
+  /** Carries the query, and `''` for "stopped searching" — see `ngOnInit`. */
   private readonly searchProbe = new Subject<string>();
+  /** Carries the customer whose tab to read. */
+  private readonly statementProbe = new Subject<number>();
   private readonly subscriptions = new Subscription();
 
   constructor(private api: RechargeApiService) {}
 
   ngOnInit(): void {
     this.load();
+
+    /**
+     * ⚠ THE EMPTY STRING IS AN EVENT, not the absence of one, and `distinctUntilChanged`
+     * comes BEFORE the debounce. Both matter, and neither is a style choice:
+     *
+     *   - Clearing the box used to drop out of this pipe entirely, so a request already in
+     *     flight still landed and put the search rows back under an empty input.
+     *     `switchMap` can only tear that request down if the clear reaches it.
+     *   - `distinctUntilChanged` compares against the last value it LET THROUGH, so after
+     *     the debounce it still held "asha" once the box was cleared. Searching the same
+     *     name again was then dropped as a duplicate: no request, no rows, and the screen
+     *     left showing the whole book under a caption claiming it matched a search.
+     *     Before the debounce, the `''` resets it.
+     */
     this.subscriptions.add(
       this.searchProbe
         .pipe(
-          debounceTime(250),
           distinctUntilChanged(),
+          debounceTime(250),
           switchMap((value) => {
+            if (value.length < 2) {
+              this.searching = false;
+              return of(null);
+            }
             this.searching = true;
             return this.api.searchCustomers(value, 25).pipe(catchError(() => of([])));
           })
         )
         .subscribe((found) => {
           this.searching = false;
-          this.searchResults = found.map((row) => this.fromSearch(row));
+          this.searchResults = found === null ? null : found.map((row) => this.fromSearch(row));
+        })
+    );
+
+    /**
+     * ⚠ `switchMap`, so clicking a second person cancels the first read.
+     *
+     * Two overlapping reads used to settle in whatever order they arrived: click Sunil
+     * then Asha, and Sunil's response landing second left his tab on screen under Asha's
+     * highlighted row. The error path was worse — it nulls the statement, so a late 404
+     * for a customer with no credit record wiped out a tab that had just loaded correctly
+     * for someone else.
+     */
+    this.subscriptions.add(
+      this.statementProbe
+        .pipe(
+          switchMap((customerId) => {
+            this.statementLoading = true;
+            this.statementError = '';
+            return this.api.creditStatement(customerId, this.statementPage).pipe(
+              catchError((error) => {
+                // A 404 is the §2.6 case: an unknown customer or a bank pseudo-customer,
+                // refused rather than answered with an empty tab that reads as "owes
+                // nothing".
+                this.statementError = errorSentence(error);
+                return of(null);
+              })
+            );
+          })
+        )
+        .subscribe((statement) => {
+          this.statementLoading = false;
+          this.statement = statement;
         })
     );
   }
@@ -169,18 +222,14 @@ export class CreditBookComponent implements OnInit, OnDestroy {
 
   onQuery(value: string): void {
     this.query = value;
-    const trimmed = value.trim();
-    if (trimmed.length >= 2) {
-      this.searchProbe.next(trimmed);
-    } else {
-      // Back to browsing, rather than showing a stale result set under a cleared box.
-      this.searchResults = null;
-      this.searching = false;
-    }
+    // ⚠ Always pushed, including the short/empty case. The pipe turns that back into
+    // "browsing" AND cancels whatever is in flight; handling it here could not.
+    this.searchProbe.next(value.trim());
   }
 
   clearQuery(): void {
     this.query = '';
+    this.searchProbe.next('');
     this.searchResults = null;
     this.searching = false;
   }
@@ -215,10 +264,27 @@ export class CreditBookComponent implements OnInit, OnDestroy {
     return paise / 100;
   }
 
+  /**
+   * Whether the loaded rows ARE the book, so the figures above can speak for all of it.
+   *
+   * ⚠ False until the first page lands. `0 >= 0` is true on an empty component, which is
+   * what used to put the unqualified caption "Owed to us" over "₹0.00" on first paint —
+   * the authoritative-wrong-number failure this flag exists to prevent, shown with full
+   * confidence while the request was still out. The template also gates on `loading`; this
+   * guard is the one that survives a reader who forgets to.
+   */
   get wholeBookLoaded(): boolean {
-    return this.rows.length >= this.peopleOnBook;
+    return !this.loading && !!this.rows.length && this.rows.length >= this.peopleOnBook;
   }
 
+  /**
+   * ⚠ ALL THREE COUNT THE LOADED ROWS, not the book.
+   *
+   * With more people than `BOOK_PAGE_SIZE`, a numerator from one page beside the
+   * book-wide `peopleOnBook` reads "72 of 150" and understates how many customers are
+   * overdue on the one panel that exists to make debt chaseable. `wholeBookLoaded` is
+   * what the template uses to caption them honestly — the same guard `totalOwed` carries.
+   */
   get owingCount(): number {
     return this.rows.filter((row) => row.outstanding > 0).length;
   }
@@ -231,47 +297,44 @@ export class CreditBookComponent implements OnInit, OnDestroy {
     return this.rows.filter((row) => row.advanceHeld > 0).length;
   }
 
+  /**
+   * What `peopleOnBook` is actually counting, which the toggle changes.
+   *
+   * ⚠ It is the FILTERED total. With `owingOnly` on, `minOutstanding=0` drops everyone
+   * carrying an advance, so the one number on this screen that is supposed to mean
+   * "everyone with a tab" quietly starts meaning "everyone who owes". Said rather than
+   * left for a reader to discover.
+   */
+  get peopleWord(): string {
+    return this.owingOnly ? 'who owe' : 'with a tab';
+  }
+
   // -- one person's tab -----------------------------------------------------
 
   select(row: BookRow): void {
     this.selectedId = row.customerId;
     this.statementPage = 0;
-    this.loadStatement();
+    // ⚠ Cleared before the read, not after it. Left in place, the previous person's
+    // balance sits under the new person's name for as long as the request takes — which
+    // on this screen is someone else's debt shown against their name.
+    this.statement = null;
+    this.statementError = '';
+    this.statementProbe.next(row.customerId);
   }
 
   closeStatement(): void {
     this.selectedId = null;
     this.statement = null;
     this.statementError = '';
+    this.statementLoading = false;
   }
 
   statementGoToPage(page: number): void {
-    this.statementPage = page;
-    this.loadStatement();
-  }
-
-  private loadStatement(): void {
     if (this.selectedId === null) {
       return;
     }
-    this.statementLoading = true;
-    this.statementError = '';
-    this.subscriptions.add(
-      this.api.creditStatement(this.selectedId, this.statementPage).subscribe({
-        next: (statement) => {
-          this.statementLoading = false;
-          this.statement = statement;
-        },
-        error: (error) => {
-          this.statementLoading = false;
-          this.statement = null;
-          // A 404 here is the §2.6 case: an unknown customer or a bank pseudo-customer,
-          // which is refused rather than answered with an empty tab that reads as
-          // "owes nothing".
-          this.statementError = errorSentence(error);
-        }
-      })
-    );
+    this.statementPage = page;
+    this.statementProbe.next(this.selectedId);
   }
 
   get statementLines(): StatementLineResponse[] {

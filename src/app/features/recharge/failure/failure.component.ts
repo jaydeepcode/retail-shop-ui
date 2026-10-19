@@ -142,12 +142,26 @@ export class FailureComponent implements OnInit, OnDestroy {
         .subscribe((page) => this.applyFailure(page?.content ?? null))
     );
 
+    /**
+     * ⚠ `distinctUntilChanged` BEFORE the debounce, and `''` is an event.
+     *
+     * After the debounce it compares against the last value it LET THROUGH, which survives
+     * the box being cleared. Pick Asha Kale for a `KEEP_AS_ADVANCE` refund, press Change,
+     * and type the same name again: the emission is dropped as a duplicate, no request
+     * goes out, and the screen tells the staff member "Nobody by that name or mobile. This
+     * has to go to someone already on the books" about a customer who exists — with the
+     * refund unsendable until they type something else first.
+     */
     this.subscriptions.add(
       this.customerProbe
         .pipe(
-          debounceTime(250),
           distinctUntilChanged(),
+          debounceTime(250),
           switchMap((value) => {
+            if (value.length < 2) {
+              this.customerSearching = false;
+              return of([]);
+            }
             this.customerSearching = true;
             return this.api.searchCustomers(value).pipe(catchError(() => of([])));
           })
@@ -182,6 +196,12 @@ export class FailureComponent implements OnInit, OnDestroy {
     // ⚠ Dropped on a re-read. It narrows the modes from one refusal about one payment, so
     // carrying it across a reload would hide a mode that is genuinely available.
     this.serverModes = null;
+    // ⚠ And so is the outcome. `settled` hides the resolution choices and shows the
+    // "Sorted" card, so a retry recorded for one recharge left its own sentence on screen
+    // for the NEXT one — this component is reused when `:failedId` changes.
+    this.retried = null;
+    this.refunded = null;
+    this.panel = 'none';
     if (this.rechargeId === null) {
       return of(null);
     }
@@ -497,23 +517,22 @@ export class FailureComponent implements OnInit, OnDestroy {
 
   onCustomerQuery(value: string): void {
     this.customerQuery = value;
-    if (value.trim().length >= 2) {
-      this.customerProbe.next(value.trim());
-    } else {
-      this.customerResults = [];
-    }
+    // ⚠ Always pushed, short values included, so the pipe both resets and cancels.
+    this.customerProbe.next(value.trim());
   }
 
   chooseCustomer(customer: CreditCustomerResponse): void {
     this.chosenCustomer = customer;
     this.customerResults = [];
     this.customerQuery = '';
+    this.customerProbe.next('');
   }
 
   clearCustomer(): void {
     this.chosenCustomer = null;
     this.customerQuery = '';
     this.customerResults = [];
+    this.customerProbe.next('');
   }
 
   // -- sending --------------------------------------------------------------

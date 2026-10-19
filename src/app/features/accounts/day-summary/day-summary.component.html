@@ -22,7 +22,16 @@
     <!-- The gate's figure, and the two terms it is made of. -->
     <div class="figures">
       <div class="figure figure-lead">
-        <p class="figure-label">The books expect the till to hold</p>
+        <!--
+          ⚠ The label follows the figure, which is a NET movement now and not a holding.
+          Refund an earlier day's failure on a day with no cash sales and this reads
+          "₹-350.00" — correct, and `tillSourcesAgree` is rightly quiet about it, but not a
+          statement about what is in the drawer. "Moved today" is true in both directions.
+        -->
+        <p class="figure-label">
+          {{ booksExpect < 0 ? 'The books say cash moved OUT today'
+                             : 'The books say the recharge till took in' }}
+        </p>
         <p class="mono figure-value">₹{{ booksExpect | number: '1.2-2' }}</p>
         <!--
           ⚠ NOT A SUM ANY MORE. Every arithmetic form of this figure was wrong: "takings +

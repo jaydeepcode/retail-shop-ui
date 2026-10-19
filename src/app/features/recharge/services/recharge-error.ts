@@ -180,8 +180,12 @@ export function availableRefundModes(error: unknown): ResidualMode[] | null {
   if (body?.code !== 'REFUND_MODE_NOT_AVAILABLE') {
     return null;
   }
+  // ⚠ An EMPTY list is treated as no answer, not as "no modes". The caller replaces its
+  // derived list with whatever comes back, and `[]` is truthy — so an empty `available`
+  // rendered a refund panel with zero buttons under "How is it going back?", permanently
+  // unsendable and with nothing on screen saying why.
   const available = body.details?.['available'];
-  return Array.isArray(available) ? (available as ResidualMode[]) : null;
+  return Array.isArray(available) && available.length ? (available as ResidualMode[]) : null;
 }
 
 /**

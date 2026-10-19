@@ -234,9 +234,56 @@ describe('CreditBookComponent', () => {
     expect(book.visibleRows.length).toBe(0);
 
     book.clearQuery();
+    // ⚠ The clear is now an EVENT on the probe, so it carries a debounce timer of its own —
+    // which is what lets `switchMap` cancel a request already in flight.
+    tick(250);
     fixture.detectChanges();
     expect(book.visibleRows.length).toBe(1);
     expect(book.visibleRows[0].name).toBe('Sunil Patil');
+  }));
+
+  /**
+   * ⚠ `distinctUntilChanged` after the debounce compares against the last value it LET
+   * THROUGH, which survives the box being cleared — so searching the same name twice was
+   * dropped as a duplicate and the screen sat showing the whole book under a caption
+   * claiming it matched a search.
+   */
+  it('searches the same term again after the box has been cleared', fakeAsync(() => {
+    load([row()]);
+
+    book.onQuery('asha');
+    tick(250);
+    http.expectOne((r) => r.url === `${base}/customers`).flush([]);
+
+    book.clearQuery();
+    tick(250);
+
+    book.onQuery('asha');
+    tick(250);
+    // The request must go out a SECOND time for the same text.
+    const again = http.expectOne((r) => r.url === `${base}/customers`);
+    expect(again.request.params.get('query')).toBe('asha');
+    again.flush([]);
+  }));
+
+  /**
+   * ⚠ Clearing the box has to reach the pipe, or `switchMap` cannot tear down a request
+   * already in flight — and its response lands afterwards, putting the search rows back
+   * under an empty input.
+   */
+  it('cancels a search still in flight when the box is cleared', fakeAsync(() => {
+    load([row()]);
+
+    book.onQuery('asha');
+    tick(250);
+    const inFlight = http.expectOne((r) => r.url === `${base}/customers`);
+
+    book.clearQuery();
+    tick(250);
+
+    expect(inFlight.cancelled).toBe(true);
+    expect(book.searchResults).toBeNull();
+    expect(book.visibleRows.length).toBe(1);
   }));
 
   it('does not search on one character', fakeAsync(() => {
@@ -245,6 +292,7 @@ describe('CreditBookComponent', () => {
     tick(250);
     // No request at all, and the book is still what is showing.
     expect(book.searchResults).toBeNull();
+    expect(book.visibleRows.length).toBe(1);
   }));
 
   // ------------------------------------------------- one person's tab
@@ -261,6 +309,103 @@ describe('CreditBookComponent', () => {
     expect(book.statementLines.length).toBe(1);
     const text = fixture.nativeElement.textContent as string;
     expect(text).toContain('Oldest unpaid for 41 days');
+  });
+
+  /**
+   * ⚠ TWO TABS IN FLIGHT SETTLE IN WHATEVER ORDER THEY ARRIVE. Click Sunil, then Asha
+   * before his response lands, and his tab ends up on screen under her highlighted row —
+   * one customer's debt shown against another's name.
+   */
+  it('shows the tab of the person last clicked, whatever order the reads land in', () => {
+    load([row(), row({ customerId: 4822, name: 'Asha Kale' })]);
+
+    book.select(book.rows[0]);
+    const first = http.expectOne((r) => r.url === `${base}/credit/customers/4821`);
+
+    book.select(book.rows[1]);
+    const second = http.expectOne((r) => r.url === `${base}/credit/customers/4822`);
+
+    expect(first.cancelled).toBe(true);
+    second.flush(statement({ customerId: 4822, name: 'Asha Kale' }));
+    fixture.detectChanges();
+
+    expect(book.selectedId).toBe(4822);
+    expect(book.statement?.name).toBe('Asha Kale');
+  });
+
+  /** And the previous person's balance does not sit under the new name while it loads. */
+  it('clears the tab before reading the next one', () => {
+    load([row(), row({ customerId: 4822, name: 'Asha Kale' })]);
+
+    book.select(book.rows[0]);
+    http.expectOne((r) => r.url === `${base}/credit/customers/4821`).flush(statement());
+    fixture.detectChanges();
+    expect(book.statement?.name).toBe('Sunil Patil');
+
+    book.select(book.rows[1]);
+    fixture.detectChanges();
+
+    expect(book.statement).toBeNull();
+    expect(fixture.nativeElement.textContent as string).not.toContain('owes ₹2049.00 Oldest');
+    http.expectOne((r) => r.url === `${base}/credit/customers/4822`)
+      .flush(statement({ customerId: 4822, name: 'Asha Kale' }));
+  });
+
+  /** A failed read must still be dismissable — this screen provokes the 404 deliberately. */
+  it('offers a way out when the tab could not be read', () => {
+    load([row()]);
+    book.select(book.rows[0]);
+    http.expectOne((r) => r.url === `${base}/credit/customers/4821`).flush(
+      { code: 'CUSTOMER_NOT_FOUND', message: 'No customer 4821.' },
+      { status: 404, statusText: 'Not Found' }
+    );
+    fixture.detectChanges();
+
+    const close = fixture.nativeElement.querySelector('.book-side .btn-small') as HTMLButtonElement;
+    expect(close).not.toBeNull();
+    close.click();
+    fixture.detectChanges();
+
+    expect(book.selectedId).toBeNull();
+    expect(fixture.nativeElement.querySelector('.book-side')).toBeNull();
+  });
+
+  /**
+   * ⚠ `0 >= 0` is true on an empty component, so the figures used to claim "Owed to us
+   * ₹0.00" with full confidence while the first request was still out.
+   */
+  it('shows no figures at all until the book has landed', () => {
+    // Deliberately NOT flushed: this is the state during the first read.
+    expect(book.loading).toBe(true);
+    expect(book.wholeBookLoaded).toBe(false);
+    const text = fixture.nativeElement.textContent as string;
+    expect(text).not.toContain('Owed to us');
+    expect(text).toContain('Reading the book');
+
+    http.expectOne((r) => r.url === `${base}/credit/customers`).flush(bookPage([row()]));
+  });
+
+  /**
+   * ⚠ The counts come from the loaded page and `peopleOnBook` from the server's total, so
+   * they must not be printed as a fraction of each other.
+   */
+  it('does not read a page count against the whole book as a fraction', () => {
+    load([row()], 140);
+
+    const text = fixture.nativeElement.textContent as string;
+    expect(text).toContain('among the 1 loaded');
+    expect(text).not.toContain('of 140 with a tab');
+  });
+
+  /** ⚠ `peopleOnBook` is the FILTERED total, so the toggle changes what it counts. */
+  it('says what the total is counting once people in credit are hidden', () => {
+    load([row()]);
+    book.toggleOwingOnly();
+    http.expectOne((r) => r.url === `${base}/credit/customers`).flush(bookPage([row()]));
+    fixture.detectChanges();
+
+    expect(book.peopleWord).toBe('who owe');
+    expect(fixture.nativeElement.textContent as string).toContain('of 1 who owe');
   });
 
   /** `runningBalance` is the one signed figure, and negative means owed. */

@@ -174,10 +174,17 @@
             || (retryDirection === 'higher' && retryTopUpMethod === 'CREDIT')
         }"></ng-container>
 
-        <div class="field">
+        <!--
+          ⚠ Hidden on an equal-amount retry, which is the DEFAULT — the panel opens at the
+          amount that failed. `RetryRechargeRequest` has no top-level note: it hangs off
+          the settlement, and an equal-amount retry sends no settlement. Offered there, a
+          note typed by a staff member would be silently dropped.
+        -->
+        <div class="field" *ngIf="retryDirection !== 'same'">
           <label for="retry-note">Note (optional)</label>
           <input id="retry-note" type="text" maxlength="255" [(ngModel)]="retryNote"
                  name="retryNote">
+          <p class="field-note">Kept against the money that changes hands.</p>
         </div>
 
         <p *ngIf="submitError" class="panel-fault" role="alert">{{ submitError }}</p>

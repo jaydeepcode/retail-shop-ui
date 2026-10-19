@@ -4,8 +4,14 @@
 
   <div class="book-main">
 
-    <!-- The figures. Captioned by what is actually loaded, never by what is hoped. -->
-    <div class="figures" *ngIf="!loadError">
+    <!--
+      The figures. Captioned by what is actually loaded, never by what is hoped.
+
+      ⚠ Gated on `loading` as well as `loadError`. Without it, first paint — and every
+      toggle on a slow link — rendered "Owed to us ₹0.00" and "0 of 0" with full
+      confidence while the request was still out.
+    -->
+    <div class="figures" *ngIf="!loadError && !loading">
       <div class="figure figure-lead">
         <p class="figure-label">
           {{ wholeBookLoaded ? 'Owed to us' : 'Owed across the ' + rows.length + ' shown' }}
@@ -19,9 +25,9 @@
         <p class="figure-note">
           Across every business and never filtered by year — recharge, water and anything
           else on one tab per person.
-          <span *ngIf="!wholeBookLoaded">
-            {{ peopleOnBook }} people have a tab and {{ rows.length }} are loaded, so this
-            is not the whole book.
+          <span *ngIf="!wholeBookLoaded && rows.length">
+            {{ peopleOnBook }} people are {{ peopleWord }} and {{ rows.length }} are
+            loaded, so this is not the whole book.
           </span>
         </p>
       </div>
@@ -29,14 +35,21 @@
       <div class="figure">
         <p class="figure-label">People owing</p>
         <p class="mono figure-value">{{ owingCount }}</p>
-        <p class="figure-note">of {{ peopleOnBook }} with a tab.</p>
+        <!-- ⚠ Numerator from the loaded rows, so it only reads "of N" when they are all of them. -->
+        <p class="figure-note">
+          {{ wholeBookLoaded ? 'of ' + peopleOnBook + ' ' + peopleWord + '.'
+                             : 'among the ' + rows.length + ' loaded.' }}
+        </p>
       </div>
 
       <div class="figure" [class.figure-warn]="overdueCount > 0">
         <p class="figure-label">Over 30 days</p>
         <p class="mono figure-value">{{ overdueCount }}</p>
         <!-- ⚠ Server-computed. The 30-day rule is never re-derived on a client. -->
-        <p class="figure-note">Worked out by the server, not here.</p>
+        <p class="figure-note">
+          Worked out by the server, not here.<span *ngIf="!wholeBookLoaded"> Counted among
+          the {{ rows.length }} loaded, so there may be more.</span>
+        </p>
       </div>
 
       <div class="figure" *ngIf="totalAdvance > 0">
@@ -149,11 +162,25 @@
 
   <!-- ===================================================== one person's tab -->
   <div class="book-side" *ngIf="selectedId !== null">
-    <section class="card" aria-labelledby="tab-heading">
+    <!--
+      ⚠ `aria-label`, not `aria-labelledby`. The heading it used to point at lives inside
+      the loaded branch, so on the error path it named an element that was not in the DOM.
+    -->
+    <section class="card" aria-label="One person's tab">
 
       <p *ngIf="statementLoading" class="tab-loading">Reading the tab…</p>
 
-      <p *ngIf="statementError" class="book-fault" role="alert">{{ statementError }}</p>
+      <!--
+        ⚠ Its own Close. The one below sits inside the loaded branch, so a failed read left
+        the panel open with no way out — and this screen provokes that case deliberately,
+        by letting the search return customers who have no credit record at all.
+      -->
+      <ng-container *ngIf="statementError">
+        <p class="book-fault" role="alert">{{ statementError }}</p>
+        <div class="tab-head">
+          <button type="button" class="btn btn-small" (click)="closeStatement()">Close</button>
+        </div>
+      </ng-container>
 
       <ng-container *ngIf="statement as tab">
         <header class="tab-head">

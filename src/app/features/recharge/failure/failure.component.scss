@@ -217,24 +217,289 @@
   color: t.$ink-muted;
 }
 
-.blocked {
-  margin: 0;
-  padding: 13px 15px;
-  border-radius: 5px;
-  border: 1px solid #e3a857;
-  background: #fff3df;
-  font-size: 13px;
-  line-height: 1.5;
-  color: #6e3c00;
-
-  .mono { font-size: 12px; }
-}
-
-.blocked-why {
+.choices-why {
   margin: 0;
   font-size: 12px;
   line-height: 1.5;
   color: t.$ink-muted;
+}
+
+// ------------------------------------------------- the two panels
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.panel-head {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.panel-note {
+  margin: 0;
+  padding: 11px 13px;
+  border-radius: 5px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.panel-note-plain {
+  background: t.$surface-sunk;
+  border: 1px solid t.$border-light;
+  color: t.$ink-muted;
+}
+
+// The payment could not be read, so the mode list is narrower than the sale allows.
+.panel-note-warn {
+  border: 1px solid #e3a857;
+  background: #fff3df;
+  color: #6e3c00;
+}
+
+.panel-fault {
+  margin: 0;
+  padding: 11px 13px;
+  border-radius: 5px;
+  border: 1px solid #d08a8a;
+  background: #fdf0f0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #8a1f1f;
+}
+
+.panel-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+// ------------------------------------------------- fields
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+}
+
+.field > label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: t.$ink-muted;
+}
+
+.field-note {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: t.$ink-muted;
+}
+
+input {
+  font-family: inherit;
+  color: t.$ink;
+  background: t.$surface;
+  box-sizing: border-box;
+  height: 42px;
+  max-width: 420px;
+  padding: 0 13px;
+  border: 1px solid t.$border;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.input-amount {
+  max-width: 180px;
+  font-size: 19px;
+  font-weight: 600;
+}
+
+// ------------------------------------------------- settling the difference
+
+.settle {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+
+.settle-head {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: t.$ink;
+}
+
+.modes {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.mode {
+  flex: 1 1 170px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 11px 13px;
+  border-radius: 5px;
+  border: 1px solid t.$border;
+  background: t.$surface;
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.mode-on {
+  border-color: t.$primary;
+  background: t.$primary-tint;
+}
+
+.mode-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: t.$ink;
+}
+
+.mode-sub {
+  font-size: 11px;
+  line-height: 1.4;
+  color: t.$ink-muted;
+}
+
+// ------------------------------------------------- the refund figure
+
+// ⚠ Deliberately NOT an input. A partial refund is refused, so there is nothing to type.
+.refund-figure {
+  padding: 13px 15px;
+  border-radius: 5px;
+  background: t.$surface-sunk;
+  border: 1px solid t.$border-light;
+}
+
+.refund-label {
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: t.$ink-muted;
+}
+
+.refund-amount {
+  margin: 5px 0 0;
+  font-size: 26px;
+  font-weight: 600;
+}
+
+.refund-note {
+  margin: 7px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: t.$ink-muted;
+}
+
+// ------------------------------------------------- choosing a customer
+
+.chosen {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin: 0;
+  font-size: 14px;
+}
+
+.chosen-mobile {
+  font-size: 12px;
+  color: t.$ink-muted;
+}
+
+.results {
+  list-style: none;
+  margin: 2px 0 0;
+  padding: 0;
+  max-width: 420px;
+  border: 1px solid t.$border;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.result {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 13px;
+  border: 0;
+  border-bottom: 1px solid t.$border-light;
+  background: t.$surface;
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.results li:last-child .result {
+  border-bottom: 0;
+}
+
+.result-name {
+  flex-grow: 1;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.result-mobile {
+  font-size: 12px;
+  color: t.$ink-muted;
+}
+
+.result-warn {
+  font-size: 11px;
+  font-weight: 600;
+  color: t.$badge-warn;
+}
+
+// ------------------------------------------------- the outcome
+
+.card-done {
+  border-color: #cbe2d5;
+  background: #f2f7f4;
+}
+
+.card-stale {
+  border-color: #e3a857;
+  background: #fff3df;
+}
+
+.done-line,
+.stale-note {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.done-money {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.done-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.btn-small {
+  height: 34px;
+  padding: 0 14px;
+  border-color: t.$border;
+  background: t.$surface;
+  color: t.$ink;
+  font-size: 13px;
 }
 
 // ------------------------------------------------- the record

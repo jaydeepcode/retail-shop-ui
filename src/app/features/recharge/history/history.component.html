@@ -145,9 +145,12 @@
       <span class="history-note-label">Two things missing here</span>
       <span>Rows are listed one per recharge, not grouped under their payment, and there is
         no “paid by” column: the history endpoint returns recharges without a payment id or
-        settlement lines. And voiding a completed sale has no button yet — the status would
-        move but the reversing voucher is not posted, so the books would overstate income.
-        Both are recorded in the session notes.</span>
+        settlement lines. And voiding a completed sale still has no button — but no longer
+        for the reason this note used to give. The reversing voucher <em>is</em> posted now,
+        so the books do not overstate income after a void; what a void cannot do is hand the
+        money back, because nothing can settle it afterwards. A delivered sale that should be
+        undone is marked failed and then given back, both of which have buttons. Recorded in
+        the session notes.</span>
     </p>
   </section>
 </div>

@@ -26,6 +26,12 @@ function summary(overrides: Partial<DaySummaryResponse> = {}): DaySummaryRespons
     // formulas are wrong against this fixture, which is the point — the previous
     // version made them both look right.
     cashCollectedToday: 3104,
+    // ⚠ The third term, and zero here on purpose: this fixture is a day with no refund
+    // in it, which was the shape of EVERY fixture when the two-term identity shipped and
+    // is exactly why no test caught it. `tillSourcesAgree` is now
+    // `cashCollectedToday === tenderMix.CASH − cashPaidOutToday`, and the refund day is
+    // covered by its own case below.
+    cashPaidOutToday: 0,
     tenderMix: { CASH: 3104, UPI: 418 },
     awaitingCount: 1,
     unresolvedFailureCount: 1,
@@ -106,6 +112,65 @@ describe('DaySummaryComponent', () => {
     expect(day.tillSourcesAgree).toBe(false);
     const text = fixture.nativeElement.textContent as string;
     expect(text).toContain('a posting is wrong');
+  });
+
+  /**
+   * ⚠ THE CASE NO FIXTURE HAD, and the reason the two-term identity survived a review and
+   * a test suite: every fixture was a day with no refund in it.
+   *
+   * `ck_txnpay_amount CHECK (AMOUNT > 0)` makes a negative tender line unrepresentable, so
+   * a refund moves the ledger figure and leaves the tender figure alone. The real numbers
+   * that found it were 849 against 1199 — a ₹350 refund on a ₹1,199 cash day.
+   */
+  it('calls a refund day correct, which it did not before', () => {
+    respond(summary({
+      cashCollectedToday: 849,
+      cashPaidOutToday: 350,
+      tenderMix: { CASH: 1199 }
+    }));
+
+    expect(day.tillSourcesAgree).toBe(true);
+    expect(day.booksExpect).toBe(849);
+  });
+
+  /** On that day the drawer holds less than was taken, and the screen has to say why. */
+  it('shows what was handed back rather than only subtracting it', () => {
+    respond(summary({
+      cashCollectedToday: 849,
+      cashPaidOutToday: 350,
+      tenderMix: { CASH: 1199 }
+    }));
+
+    expect(day.hasPaidOut).toBe(true);
+    expect(day.paidOut).toBe(350);
+    expect(day.cashTakenGross).toBe(1199);
+
+    const text = fixture.nativeElement.textContent as string;
+    expect(text).toContain('350.00');
+    expect(text).toContain('handed back');
+  });
+
+  /**
+   * ⚠ The pay-out belongs on the TENDER side of the comparison, not the ledger side.
+   * Subtracting it from both would make a refund day disagree by exactly the refund, which
+   * is the same false alarm in a new place.
+   */
+  it('still catches a wrong posting on a day that also had a refund', () => {
+    respond(summary({
+      cashCollectedToday: 900,
+      cashPaidOutToday: 350,
+      tenderMix: { CASH: 1199 }
+    }));
+
+    expect(day.tillSourcesAgree).toBe(false);
+  });
+
+  /** Nothing went back out, so nothing is said about it. */
+  it('says nothing about pay-outs on an ordinary day', () => {
+    respond(summary());
+
+    expect(day.hasPaidOut).toBe(false);
+    expect(fixture.nativeElement.textContent as string).not.toContain('handed back');
   });
 
   /** A UPI-only day takes no cash, however much income it recognised. */

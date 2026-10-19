@@ -1,5 +1,10 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { CreateCustomerRequestResult, ErrorCode, ErrorResponse } from '../model/recharge.models';
+import {
+  CreateCustomerRequestResult,
+  ErrorCode,
+  ErrorResponse,
+  ResidualMode
+} from '../model/recharge.models';
 
 /**
  * Reading `/recharge`'s one error shape (`response/ErrorResponse.java`).
@@ -106,6 +111,11 @@ export function errorSentence(error: unknown): string {
     case 'REASON_REQUIRED':
       return 'A reason is required.';
 
+    case 'DUPLICATE_RETRY':
+      // ⚠ Not an error to retry. V29's unique key means the request LOST A RACE, so the
+      // retry it would repeat has already happened.
+      return 'Someone has already retried this recharge. Refresh and look again.';
+
     case 'CUSTOMER_NOT_FOUND':
       return 'That customer no longer exists. Search for them again.';
 
@@ -115,6 +125,12 @@ export function errorSentence(error: unknown): string {
     case 'CONCURRENT_MODIFICATION':
       return 'Someone else changed this at the same moment. Refresh and retry.';
 
+    // ⚠ `UNSETTLED_DIFFERENCE` and `REFUND_MODE_NOT_AVAILABLE` fall through here ON
+    // PURPOSE, having been considered and left alone. Both carry a message the client
+    // cannot improve on: the first reaches a screen from either direction and needs
+    // opposite instructions for each, and the second already names the sale's own reason
+    // ("no cash was collected on payment P-12, so there is none to hand back"). The refund
+    // panel narrows its choices from `details.available` instead of restating them.
     default:
       return body.message;
   }
@@ -134,6 +150,38 @@ export function fieldErrorsByPath(error: unknown): Map<string, string> {
     }
   }
   return byPath;
+}
+
+/**
+ * Whether the failure this screen is showing has already been dealt with by someone else.
+ *
+ * ⚠ The three codes mean one thing to a staff member: the work is done, so the answer is
+ * to re-read rather than to try again. `DUPLICATE_RETRY` is the race that V29's unique key
+ * decides in the database, `FAILURE_ALREADY_RESOLVED` is the same answer arriving from the
+ * status, and `ILLEGAL_STATUS_TRANSITION` is how a refund of an already-retried recharge
+ * comes back.
+ */
+export function isAlreadyResolved(error: unknown): boolean {
+  const code = errorCode(error);
+  return code === 'DUPLICATE_RETRY'
+    || code === 'FAILURE_ALREADY_RESOLVED'
+    || code === 'ILLEGAL_STATUS_TRANSITION';
+}
+
+/**
+ * The refund modes a 422 says ARE available, or `null` when this is not that refusal.
+ *
+ * ⚠ The server lists them because "a counter that is told only 'no' has to guess, and the
+ * answer is already known here" (`RefundModeNotAvailableException.java:20-21`). The screen
+ * narrows its choices to this list; it never invents one.
+ */
+export function availableRefundModes(error: unknown): ResidualMode[] | null {
+  const body = errorBody(error);
+  if (body?.code !== 'REFUND_MODE_NOT_AVAILABLE') {
+    return null;
+  }
+  const available = body.details?.['available'];
+  return Array.isArray(available) ? (available as ResidualMode[]) : null;
 }
 
 /**

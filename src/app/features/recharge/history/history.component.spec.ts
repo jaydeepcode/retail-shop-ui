@@ -142,14 +142,23 @@ describe('HistoryComponent', () => {
     expect(labels).toEqual(['Year', 'Number starts with', 'Operator', 'Status']);
   });
 
-  /** ⚠ /void posts no reversing voucher, so artboard 7's link must not be a control. */
-  it('offers no way to void a completed sale', () => {
+  /**
+   * ⚠ Still no void control, but for the live reason rather than the dead one.
+   *
+   * The reversing voucher is posted now, so "the books would overstate income" is no
+   * longer true and the note no longer says it. What a void cannot do is hand the money
+   * back — it returns it to `RCHG_PENDING`, which only a refund can clear, and a refund
+   * refuses a `VOIDED` recharge. The working correction is mark-failed then refund.
+   */
+  it('offers no way to void a completed sale, and says what to do instead', () => {
     respond(page([row({ status: 'COMPLETED' })], ['2026-27']));
     const text = fixture.nativeElement.textContent as string;
     expect(text).not.toContain('Void it');
     expect(fixture.nativeElement.querySelector('[data-void]')).toBeNull();
-    // And it says why rather than leaving the gap unexplained.
-    expect(text).toContain('voiding a completed sale has no button yet');
+    expect(text).toContain('still has no button');
+    expect(text).toContain('marked failed and then given back');
+    // ⚠ And it must no longer repeat the claim that is now false.
+    expect(text).not.toContain('the reversing voucher is not posted');
   });
 
   it('badges a resolved failure with its resolution, which is a separate field', () => {

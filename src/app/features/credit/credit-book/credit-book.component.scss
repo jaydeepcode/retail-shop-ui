@@ -1,0 +1,378 @@
+@use '../../shared/tokens' as t;
+
+// Artboard 8. The book on the left, one person's tab on the right.
+
+:host {
+  display: block;
+  font-family: t.$sans;
+  color: t.$ink;
+}
+
+.book {
+  display: flex;
+  gap: 22px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.book-main {
+  flex: 1 1 560px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.book-side {
+  flex: 0 1 420px;
+  min-width: 320px;
+}
+
+.mono { font-family: t.$mono; }
+
+// ------------------------------------------------- the figures
+
+.figures {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.figure {
+  flex: 1 1 150px;
+  padding: 14px 16px;
+  border-radius: 6px;
+  background: t.$surface;
+  border: 1px solid t.$border;
+}
+
+.figure-lead {
+  flex: 1 1 290px;
+  border-color: t.$primary;
+  background: t.$primary-tint;
+}
+
+// Only when there is something overdue; an empty warning trains people to ignore it.
+.figure-warn {
+  border-color: #e3a857;
+  background: #fff3df;
+}
+
+.figure-label {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: t.$ink-muted;
+}
+
+.figure-value {
+  margin: 6px 0 0;
+  font-size: 26px;
+  font-weight: 600;
+}
+
+.figure-note {
+  margin: 7px 0 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: t.$ink-muted;
+}
+
+// ------------------------------------------------- search and the toggle
+
+.find {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+input {
+  box-sizing: border-box;
+  flex: 0 1 300px;
+  height: 42px;
+  padding: 0 13px;
+  border: 1px solid t.$border;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 14px;
+  color: t.$ink;
+  background: t.$surface;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  font-family: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.btn-small {
+  height: 34px;
+  padding: 0 14px;
+  border-color: t.$border;
+  background: t.$surface;
+  color: t.$ink;
+  font-size: 13px;
+}
+
+.btn-on {
+  border-color: t.$primary;
+  background: t.$primary-tint;
+  color: t.$primary-dark;
+}
+
+// ------------------------------------------------- the list
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  background: t.$surface;
+  border: 1px solid t.$border;
+  border-radius: 6px;
+  overflow: hidden;
+
+  th {
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: t.$ink-muted;
+    background: t.$surface-sunk;
+    border-bottom: 1px solid t.$border-light;
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 11px 14px;
+    border-bottom: 1px solid #f0f2f6;
+    vertical-align: top;
+  }
+
+  .num { text-align: right; }
+
+  tbody tr:last-child td { border-bottom: 0; }
+}
+
+// ⚠ `book-row`, NOT `row`. Bootstrap is a global stylesheet here (`angular.json`), and its
+// grid `.row` is `display: flex` with `> * { width: 100% }` — which on a `<tr>` turns every
+// cell into a full-width block and stacks the five columns down the page. It looks like a
+// broken table rather than a class collision, and component style encapsulation does not
+// help: the collision is on the class NAME, and both rules reach the element.
+// Found by running it; no test would have seen it, because the test build does not even
+// load Bootstrap.
+.book-row {
+  cursor: pointer;
+
+  &:hover { background: t.$surface-sunk; }
+}
+
+.book-row-on {
+  background: t.$primary-tint;
+
+  &:hover { background: t.$primary-tint; }
+}
+
+.book-row-warn td:first-child {
+  box-shadow: inset 3px 0 0 #e3a857;
+}
+
+.who {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: t.$ink;
+  text-align: left;
+  cursor: pointer;
+}
+
+.badge-warn {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: t.$badge-warn;
+}
+
+// One netted position, worded. Owing and holding read differently on purpose.
+.owes { font-weight: 600; }
+
+.holds { color: t.$badge-ok; }
+
+// ------------------------------------------------- states and notes
+
+.book-loading,
+.book-none {
+  margin: 0;
+  font-size: 13px;
+  color: t.$ink-muted;
+}
+
+.book-fault {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 11px 13px;
+  border-radius: 5px;
+  border: 1px solid #d08a8a;
+  background: #fdf0f0;
+  font-size: 13px;
+  color: #8a1f1f;
+}
+
+.book-note {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.55;
+  color: t.$ink-muted;
+}
+
+.book-note-gap {
+  padding-top: 13px;
+  border-top: 1px solid t.$border-light;
+}
+
+.book-note-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: t.$ink-faint;
+}
+
+// ------------------------------------------------- one person's tab
+
+.card {
+  background: t.$surface;
+  border: 1px solid t.$border;
+  border-radius: 6px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+}
+
+.tab-loading {
+  margin: 0;
+  font-size: 13px;
+  color: t.$ink-muted;
+}
+
+.tab-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.tab-name {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.tab-mobile {
+  margin: -8px 0 0;
+  font-size: 12px;
+  color: t.$ink-muted;
+}
+
+.tab-position {
+  padding: 12px 14px;
+  border-radius: 5px;
+  background: t.$surface-sunk;
+  border: 1px solid t.$border-light;
+}
+
+.tab-position-warn {
+  border-color: #e3a857;
+  background: #fff3df;
+}
+
+.tab-position-figure {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 600;
+  font-family: t.$mono;
+}
+
+.tab-position-note {
+  margin: 7px 0 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: t.$ink-muted;
+}
+
+.lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.line {
+  display: grid;
+  grid-template-columns: 62px 1fr auto;
+  gap: 4px 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid #f0f2f6;
+  font-size: 12px;
+
+  &:last-child { border-bottom: 0; }
+}
+
+.line-when {
+  color: t.$ink-muted;
+}
+
+.line-what {
+  min-width: 0;
+}
+
+.line-by,
+.line-note {
+  color: t.$ink-faint;
+}
+
+.line-amount {
+  text-align: right;
+  font-weight: 600;
+}
+
+.line-balance {
+  grid-column: 2 / 4;
+  text-align: right;
+  font-size: 11px;
+  color: t.$ink-muted;
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pager-where {
+  font-size: 12px;
+  color: t.$ink-muted;
+}

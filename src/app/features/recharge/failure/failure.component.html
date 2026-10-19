@@ -1,4 +1,4 @@
-<!-- Artboard 5. The read side is real; the two resolutions have no endpoint yet. -->
+<!-- Artboard 5. Read side and both resolutions, #12 and #13. -->
 
 <p *ngIf="loading" class="fail-loading">Looking it up…</p>
 
@@ -50,37 +50,218 @@
       </div>
     </section>
 
-    <!-- ⚠ Not a design choice. Endpoints #12 and #13 are not built. -->
-    <section class="card" aria-labelledby="now-heading">
+    <!-- What came back, once one of the two has been done. -->
+    <section *ngIf="settled" class="card card-done" aria-labelledby="done-heading">
+      <h3 id="done-heading" class="card-title">Sorted</h3>
+
+      <p *ngIf="retried as result" class="done-line">
+        Trying <b class="mono">₹{{ result.newRecharge.amount | number: '1.2-2' }}</b> again on
+        the same number, under the same payment —
+        <span class="mono">{{ result.newRecharge.reference }}</span>. It is on the worklist
+        now, waiting to be done.
+      </p>
+
+      <p *ngIf="refunded" class="done-line">
+        This recharge is closed. Nothing more can be done to it — a refund is the end of the
+        line.
+      </p>
+
+      <p class="done-money">{{ outcomeSentence }}</p>
+
+      <div class="done-actions">
+        <a class="btn btn-dark" routerLink="../../worklist">Back to the worklist</a>
+      </div>
+    </section>
+
+    <!--
+      ⚠ Not an error, and deliberately not offering the button back. A 409 means V29's
+      unique retry key decided a race in the database, so the work has already happened.
+    -->
+    <section *ngIf="alreadyDone && !settled" class="card card-stale" aria-labelledby="stale-heading">
+      <h3 id="stale-heading" class="card-title">Someone got there first</h3>
+      <p class="stale-note">
+        This failure has already been sorted out — retried or given back — so nothing was
+        done just now and nothing is owed twice. Read it again to see which.
+      </p>
+      <div class="done-actions">
+        <button type="button" class="btn btn-dark" (click)="refresh()">Read it again</button>
+        <a class="btn btn-small" routerLink="../../worklist">Back to the worklist</a>
+      </div>
+    </section>
+
+    <section *ngIf="!settled && !alreadyDone" class="card" aria-labelledby="now-heading">
       <h3 id="now-heading" class="card-title">What happens now</h3>
 
-      <div class="choices">
-        <button type="button" class="choice" disabled
-                aria-describedby="resolution-blocked">
+      <div *ngIf="panel === 'none'" class="choices">
+        <button type="button" class="choice" (click)="openRetry()">
           <span class="choice-title">Try again</span>
           <span class="choice-sub">same number, any amount</span>
         </button>
-        <button type="button" class="choice" disabled
-                aria-describedby="resolution-blocked">
+        <button type="button" class="choice" (click)="openRefund()">
           <span class="choice-title">Give the money back</span>
           <span class="choice-sub">all ₹{{ held | number: '1.2-2' }}</span>
         </button>
       </div>
 
-      <p id="resolution-blocked" class="blocked">
-        <b>Neither of these can be done yet.</b> Both need endpoints the counter slice did
-        not build — the retry at
-        <span class="mono">POST /recharge/recharges/{{ row.rechargeId }}/retry</span> and the
-        refund at <span class="mono">/refund</span>. Until they exist this failure stays open
-        and the money stays held, which is the correct state: nothing is lost, and the
-        worklist and the day summary both keep counting it.
+      <p *ngIf="panel === 'none'" class="choices-why">
+        A retry rides on the payment already taken and never creates a second one, so the
+        customer is not charged twice whichever of these you pick.
       </p>
 
-      <p class="blocked-why">
-        It is not approximated here on purpose. A retry built on the counter would post a
-        second payment, and the one rule this screen exists to protect is that a retry rides
-        on the payment already taken and never creates a new one.
-      </p>
+      <!-- ===================================================== retry (#12) -->
+      <div *ngIf="panel === 'retry'" class="panel">
+        <p class="panel-head">Trying again</p>
+
+        <div class="field">
+          <label for="retry-amount">Amount to try</label>
+          <input id="retry-amount" class="mono input-amount" type="number" min="1" step="0.01"
+                 [(ngModel)]="retryAmount" name="retryAmount">
+          <p class="field-note">
+            Was <span class="mono">₹{{ originalAmount | number: '1.2-2' }}</span>.
+            <!--
+              ⚠ Said out loud because it is the commonest misreading of this screen: the
+              figure typed above is the FACE VALUE, and our own charge is not part of it.
+            -->
+            <span *ngIf="carriedSurcharge > 0">
+              Our <span class="mono">₹{{ carriedSurcharge | number: '1.2-2' }}</span> charge
+              carries over unchanged, so the customer will have paid
+              <span class="mono">₹{{ retryTotal | number: '1.2-2' }}</span> in all.
+            </span>
+          </p>
+        </div>
+
+        <!-- Same amount: nothing to settle, and sending a settlement would be refused. -->
+        <p *ngIf="retryDirection === 'same'" class="panel-note panel-note-plain">
+          Same amount, so no money changes hands — the payment already taken covers it.
+        </p>
+
+        <!-- Lower: money goes back out, so the residual modes apply. -->
+        <div *ngIf="retryDirection === 'lower'" class="settle">
+          <p class="settle-head">
+            <b class="mono">₹{{ retryDifference | number: '1.2-2' }}</b> goes back to the
+            customer. How?
+          </p>
+          <div class="modes">
+            <button *ngFor="let mode of residualModes" type="button" class="mode"
+                    [class.mode-on]="retryDifferenceMode === mode"
+                    (click)="chooseDifferenceMode(mode)">
+              <span class="mode-title">{{ modeLabel(mode) }}</span>
+              <span class="mode-sub">{{ modeNote(mode) }}</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Higher: money comes back in, so every method is open. -->
+        <div *ngIf="retryDirection === 'higher'" class="settle">
+          <p class="settle-head">
+            The customer owes <b class="mono">₹{{ retryDifference | number: '1.2-2' }}</b>
+            more. How are they paying it?
+          </p>
+          <div class="modes">
+            <button *ngFor="let method of topUpMethods" type="button" class="mode"
+                    [class.mode-on]="retryTopUpMethod === method"
+                    (click)="chooseTopUpMethod(method)">
+              <span class="mode-title">{{ method === 'CREDIT' ? 'On their tab' : method }}</span>
+              <span class="mode-sub">{{ method === 'CREDIT'
+                ? 'Added to what they owe.'
+                : 'Added to the original payment.' }}</span>
+            </button>
+          </div>
+        </div>
+
+        <ng-container *ngTemplateOutlet="customerPicker; context: {
+          needed: (retryDirection === 'lower' && needsCustomer(retryDifferenceMode))
+            || (retryDirection === 'higher' && retryTopUpMethod === 'CREDIT')
+        }"></ng-container>
+
+        <!--
+          ⚠ Hidden on an equal-amount retry, which is the DEFAULT — the panel opens at the
+          amount that failed. `RetryRechargeRequest` has no top-level note: it hangs off
+          the settlement, and an equal-amount retry sends no settlement. Offered there, a
+          note typed by a staff member would be silently dropped.
+        -->
+        <div class="field" *ngIf="retryDirection !== 'same'">
+          <label for="retry-note">Note (optional)</label>
+          <input id="retry-note" type="text" maxlength="255" [(ngModel)]="retryNote"
+                 name="retryNote">
+          <p class="field-note">Kept against the money that changes hands.</p>
+        </div>
+
+        <p *ngIf="submitError" class="panel-fault" role="alert">{{ submitError }}</p>
+
+        <div class="panel-actions">
+          <button type="button" class="btn btn-dark" [disabled]="!retryReady || submitting"
+                  (click)="submitRetry()">
+            {{ submitting ? 'Trying…' : 'Try it again' }}
+          </button>
+          <button type="button" class="btn btn-small" [disabled]="submitting"
+                  (click)="cancelPanel()">Cancel</button>
+        </div>
+      </div>
+
+      <!-- ==================================================== refund (#13) -->
+      <div *ngIf="panel === 'refund'" class="panel">
+        <p class="panel-head">Giving the money back</p>
+
+        <!--
+          ⚠ DISPLAYED, NOT TYPED. A partial refund is refused, because REFUNDED is terminal
+          and the remainder could never be resolved — so the figure is not editable here.
+        -->
+        <div class="refund-figure">
+          <p class="refund-label">Going back</p>
+          <p class="mono refund-amount">₹{{ held | number: '1.2-2' }}</p>
+          <p class="refund-note">
+            The whole line<span *ngIf="carriedSurcharge > 0">, our
+            ₹{{ carriedSurcharge | number: '1.2-2' }} charge included</span>. It cannot be
+            split: once given back, this recharge is closed for good.
+          </p>
+        </div>
+
+        <div class="settle">
+          <p class="settle-head">How is it going back?</p>
+
+          <!--
+            ⚠ The list is a fact about the original payment, not a choice. A UPI-only sale
+            collected no cash, so there is none to hand over.
+          -->
+          <p *ngIf="noCashToReturn" class="panel-note panel-note-plain">
+            No cash was collected on this payment, so there is none to hand back.
+          </p>
+          <p *ngIf="paymentUnread" class="panel-note panel-note-warn">
+            The original payment could not be read, so the only option shown is the one
+            available on every payment. Reload to see the rest.
+          </p>
+
+          <div class="modes">
+            <button *ngFor="let mode of residualModes" type="button" class="mode"
+                    [class.mode-on]="refundMode === mode" (click)="chooseRefundMode(mode)">
+              <span class="mode-title">{{ modeLabel(mode) }}</span>
+              <span class="mode-sub">{{ modeNote(mode) }}</span>
+            </button>
+          </div>
+        </div>
+
+        <ng-container *ngTemplateOutlet="customerPicker; context: {
+          needed: needsCustomer(refundMode)
+        }"></ng-container>
+
+        <div class="field">
+          <label for="refund-note">Note (optional)</label>
+          <input id="refund-note" type="text" maxlength="255" [(ngModel)]="refundNote"
+                 name="refundNote">
+        </div>
+
+        <p *ngIf="submitError" class="panel-fault" role="alert">{{ submitError }}</p>
+
+        <div class="panel-actions">
+          <button type="button" class="btn btn-dark" [disabled]="!refundReady || submitting"
+                  (click)="submitRefund()">
+            {{ submitting ? 'Giving it back…' : 'Give the money back' }}
+          </button>
+          <button type="button" class="btn btn-small" [disabled]="submitting"
+                  (click)="cancelPanel()">Cancel</button>
+        </div>
+      </div>
     </section>
   </div>
 
@@ -130,3 +311,44 @@
     </section>
   </div>
 </div>
+
+<!--
+  Naming the customer a mode that needs one goes to.
+
+  ⚠ Only `KEEP_AS_ADVANCE` and a CREDIT top-up reach here. `CREDIT_REDUCTION` does not,
+  even though it lands on a tab: the server reduces the original credit line's customer
+  and ignores a `customerId` in the request, because naming a different one would move a
+  debt between two people's accounts.
+-->
+<ng-template #customerPicker let-needed="needed">
+  <div *ngIf="needed" class="field field-customer">
+    <label for="who">Whose account</label>
+
+    <p *ngIf="chosenCustomer as who" class="chosen">
+      <b>{{ who.name }}</b>
+      <span class="mono chosen-mobile">{{ who.contactNumber }}</span>
+      <button type="button" class="btn btn-small" (click)="clearCustomer()">Change</button>
+    </p>
+
+    <ng-container *ngIf="!chosenCustomer">
+      <input id="who" type="text" placeholder="Name or mobile" autocomplete="off"
+             [ngModel]="customerQuery" name="customerQuery"
+             (ngModelChange)="onCustomerQuery($event)">
+      <p *ngIf="customerSearching" class="field-note">Looking…</p>
+      <ul *ngIf="customerResults.length" class="results">
+        <li *ngFor="let who of customerResults">
+          <button type="button" class="result" (click)="chooseCustomer(who)">
+            <span class="result-name">{{ who.name }}</span>
+            <span class="mono result-mobile">{{ who.contactNumber }}</span>
+            <!-- ⚠ Server-computed. The 30-day rule is never re-derived on a client. -->
+            <span *ngIf="who.warn" class="result-warn">owes for over 30 days</span>
+          </button>
+        </li>
+      </ul>
+      <p *ngIf="customerQuery.length >= 2 && !customerSearching && !customerResults.length"
+         class="field-note">
+        Nobody by that name or mobile. This has to go to someone already on the books.
+      </p>
+    </ng-container>
+  </div>
+</ng-template>

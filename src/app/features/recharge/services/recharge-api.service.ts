@@ -5,7 +5,9 @@ import { environment } from '../../../../environments/environment';
 import {
   CounterConfigResponse,
   CreateCustomerRequest,
+  CreditBookRowResponse,
   CreditCustomerResponse,
+  CreditStatementResponse,
   DaySummaryResponse,
   HistoryPageResponse,
   HistoryQuery,
@@ -15,6 +17,10 @@ import {
   PageResponse,
   RechargeResponse,
   RechargeWorkItemResponse,
+  RefundRechargeRequest,
+  RefundResponse,
+  RetryRechargeRequest,
+  RetryRechargeResponse,
   ServiceType,
   SettleBasketRequest,
   TransactionResponse,
@@ -22,19 +28,36 @@ import {
 } from '../model/recharge.models';
 
 /**
- * The 15 live endpoints of `RechargeController.java:105-495`, all under `/recharge`.
+ * The live endpoints of `RechargeController.java`, all under `/recharge`.
  *
  * `ApiService` is not reused here because it cannot set a request header, and
  * `POST /recharge/transactions` requires `Idempotency-Key` — omit it and the server
- * answers 400 (`RechargeController.java:208-214`).
+ * answers 400 (`RechargeController.java:233-245`).
  *
- * ⚠ Four of `design-api.md` §3.2's endpoints are NOT built and have no method here, so
- * no screen can accidentally call one: #12 retry, #13 refund, #14-#16 the credit book.
+ * ⚠ One of `design-api.md` §3.2's endpoints is still unbuilt and so has no method here:
+ * **#16, taking a payment against a tab.** It is deferred to S6 with its design settled
+ * in `implementation-plan.md` §0.7 — a receipt must clear the customer's `AR_*` legs
+ * oldest-first, each naming its own business, and the ledger does not hold legacy debt
+ * until the opening balances land (V30/V31). A tally-first version would post water debt
+ * to `AR_RECHARGE`, so the credit book below READS and does not collect.
  *
- * ⚠ `POST /recharge/recharges/{id}/void` (#19) is deliberately absent too. The status
- * moves, which correctly drops the sale out of takings, but the reversing voucher is
- * not posted — `LedgerCorrectionRules` has no caller, which S2 left outstanding. Until
- * then the ledger overstates income after a void, so there is no method to call.
+ * ⚠ `POST /recharge/recharges/{id}/void` (#19) is built on the server and is still
+ * deliberately absent here — but for a DIFFERENT reason from the one this comment used
+ * to give. The old reason is dead: `RechargeFulfilmentService.java:229` does post the
+ * reversing JOURNAL (`RechargeLedgerPostings.java:334`), so the ledger no longer
+ * overstates income after a void.
+ *
+ * The live reason is that a void STRANDS the customer's money. `RechargeLedgerPostings`
+ * `.java:321-326` returns the amount to `RCHG_PENDING` and says §7.4's residual
+ * mechanism settles it from there — and it cannot:
+ * `RechargeFailureResolutionService.java:263-278` refuses any status that is not
+ * `FAILED` and names `VOIDED` as one it rejects. So nothing can hand that money back,
+ * and `heldPending` has no date filter, so it would sit on the day summary for good.
+ *
+ * The correction that works today is `COMPLETED → FAILED` (which posts the same
+ * reversal, `RechargeFulfilmentService.java:179-183`) and then `refund`, both of which
+ * this service does expose. Wiring `/void` is a backend contradiction to settle first,
+ * not a button to add.
  */
 @Injectable({ providedIn: 'root' })
 export class RechargeApiService {
@@ -145,6 +168,67 @@ export class RechargeApiService {
   fail(rechargeId: number, request: MarkFailedRequest = {}): Observable<RechargeResponse> {
     return this.http.post<RechargeResponse>(
       `${this.base}/recharges/${rechargeId}/fail`, request
+    );
+  }
+
+  // -- 12-13. Resolving a failure ------------------------------------------
+
+  /**
+   * Retry a failed recharge under the ORIGINAL payment (#12).
+   *
+   * ⚠ NO `Idempotency-Key`, and that is §7.2's decision rather than an omission: #12
+   * "is guarded by the unique retry key", which V29 adds. So a double-click reaches the
+   * database and is refused there as **409 `DUPLICATE_RETRY`** (or
+   * `FAILURE_ALREADY_RESOLVED`) — which the screen should read as "someone already did
+   * this; refresh", never as an error to retry.
+   */
+  retry(rechargeId: number, request: RetryRechargeRequest): Observable<RetryRechargeResponse> {
+    return this.http.post<RetryRechargeResponse>(
+      `${this.base}/recharges/${rechargeId}/retry`, request
+    );
+  }
+
+  /**
+   * Hand a failed recharge's money back (#13).
+   *
+   * ⚠ `amount` is the whole line total including surcharge — a partial refund is a 422,
+   * because `REFUNDED` is terminal and the remainder could never be resolved.
+   */
+  refund(rechargeId: number, request: RefundRechargeRequest): Observable<RefundResponse> {
+    return this.http.post<RefundResponse>(
+      `${this.base}/recharges/${rechargeId}/refund`, request
+    );
+  }
+
+  // -- 14-15. The credit book ----------------------------------------------
+
+  /**
+   * Who owes the shop money, oldest debt first (#14).
+   *
+   * ⚠ `minOutstanding` ABSENT is not the same as zero, so it is only ever set when a
+   * caller passes one: absent keeps the customers who are in credit, zero drops them.
+   */
+  creditBook(minOutstanding?: number, page = 0, size = 20):
+    Observable<PageResponse<CreditBookRowResponse>> {
+    let params = new HttpParams().set('page', page).set('size', size);
+    if (minOutstanding !== undefined && minOutstanding !== null) {
+      params = params.set('minOutstanding', minOutstanding);
+    }
+    return this.http.get<PageResponse<CreditBookRowResponse>>(
+      `${this.base}/credit/customers`, { params }
+    );
+  }
+
+  /**
+   * One person's tab, newest first, from every business (#15).
+   *
+   * A 404 rather than an empty statement for an unknown customer or a ledger
+   * pseudo-customer, because an empty statement reads as "owes nothing" (§2.6).
+   */
+  creditStatement(customerId: number, page = 0, size = 50): Observable<CreditStatementResponse> {
+    return this.http.get<CreditStatementResponse>(
+      `${this.base}/credit/customers/${customerId}`,
+      { params: new HttpParams().set('page', page).set('size', size) }
     );
   }
 

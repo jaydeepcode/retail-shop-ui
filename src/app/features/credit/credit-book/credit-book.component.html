@@ -1,0 +1,241 @@
+<!-- Artboard 8. The list of who owes, and one person's tab beside it. -->
+
+<div class="book">
+
+  <div class="book-main">
+
+    <!--
+      The figures. Captioned by what is actually loaded, never by what is hoped.
+
+      ⚠ Gated on `loading` as well as `loadError`. Without it, first paint — and every
+      toggle on a slow link — rendered "Owed to us ₹0.00" and "0 of 0" with full
+      confidence while the request was still out.
+    -->
+    <div class="figures" *ngIf="!loadError && !loading">
+      <div class="figure figure-lead">
+        <p class="figure-label">
+          {{ wholeBookLoaded ? 'Owed to us' : 'Owed across the ' + rows.length + ' shown' }}
+        </p>
+        <p class="mono figure-value">₹{{ totalOwed | number: '1.2-2' }}</p>
+        <!--
+          ⚠ Said in the caption above and explained here. There is no endpoint that returns
+          the book's total, so this is summed from the rows that are loaded. Calling a page
+          of it "the total" is the authoritative-wrong-number mistake §14.8 is about.
+        -->
+        <p class="figure-note">
+          Across every business and never filtered by year — recharge, water and anything
+          else on one tab per person.
+          <span *ngIf="!wholeBookLoaded && rows.length">
+            {{ peopleOnBook }} people are {{ peopleWord }} and {{ rows.length }} are
+            loaded, so this is not the whole book.
+          </span>
+        </p>
+      </div>
+
+      <div class="figure">
+        <p class="figure-label">People owing</p>
+        <p class="mono figure-value">{{ owingCount }}</p>
+        <!-- ⚠ Numerator from the loaded rows, so it only reads "of N" when they are all of them. -->
+        <p class="figure-note">
+          {{ wholeBookLoaded ? 'of ' + peopleOnBook + ' ' + peopleWord + '.'
+                             : 'among the ' + rows.length + ' loaded.' }}
+        </p>
+      </div>
+
+      <div class="figure" [class.figure-warn]="overdueCount > 0">
+        <p class="figure-label">Over 30 days</p>
+        <p class="mono figure-value">{{ overdueCount }}</p>
+        <!-- ⚠ Server-computed. The 30-day rule is never re-derived on a client. -->
+        <p class="figure-note">
+          Worked out by the server, not here.<span *ngIf="!wholeBookLoaded"> Counted among
+          the {{ rows.length }} loaded, so there may be more.</span>
+        </p>
+      </div>
+
+      <div class="figure" *ngIf="totalAdvance > 0">
+        <p class="figure-label">Held for customers</p>
+        <p class="mono figure-value">₹{{ totalAdvance | number: '1.2-2' }}</p>
+        <p class="figure-note">
+          {{ inCreditCount }} {{ inCreditCount === 1 ? 'person has' : 'people have' }} money
+          with us to spend, not debt.
+        </p>
+      </div>
+    </div>
+
+    <!-- Search is a different endpoint from the list; see the class comment. -->
+    <div class="find">
+      <label class="visually-hidden" for="find-who">Search by name or mobile</label>
+      <input id="find-who" type="text" placeholder="Name or mobile" autocomplete="off"
+             [ngModel]="query" (ngModelChange)="onQuery($event)">
+      <button *ngIf="query" type="button" class="btn btn-small" (click)="clearQuery()">
+        Clear
+      </button>
+      <button *ngIf="!searchingNow" type="button" class="btn btn-small"
+              [class.btn-on]="owingOnly" (click)="toggleOwingOnly()">
+        {{ owingOnly ? 'Showing only people who owe' : 'Everyone with a tab' }}
+      </button>
+    </div>
+
+    <p *ngIf="loadError" class="book-fault" role="alert">
+      {{ loadError }}
+      <button type="button" class="btn btn-small" (click)="load()">Try again</button>
+    </p>
+
+    <p *ngIf="loading" class="book-loading">Reading the book…</p>
+    <p *ngIf="searching" class="book-loading">Looking…</p>
+
+    <ng-container *ngIf="!loading && !loadError">
+
+      <table class="table" *ngIf="visibleRows.length">
+        <caption class="visually-hidden">
+          {{ searchingNow ? 'Customers matching the search' : 'Everyone with a tab, oldest debt first' }}
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">Who</th>
+            <th scope="col">Mobile</th>
+            <th scope="col" class="num">Position</th>
+            <th scope="col" class="num">Oldest debt</th>
+            <th scope="col" class="num">Last activity</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of visibleRows; trackBy: trackByCustomer"
+              class="book-row" [class.book-row-on]="row.customerId === selectedId"
+              [class.book-row-warn]="row.warn" (click)="select(row)">
+            <td>
+              <button type="button" class="who">{{ row.name }}</button>
+              <span *ngIf="row.warn" class="badge-warn">over 30 days</span>
+            </td>
+            <td class="mono">{{ row.contactNumber }}</td>
+            <!-- ⚠ ONE netted figure, never an owes column beside a holds column. -->
+            <td class="num" [class.owes]="row.outstanding > 0"
+                [class.holds]="row.advanceHeld > 0">{{ positionWord(row) }}</td>
+            <td class="num mono">{{ row.oldestDebtDays !== null ? row.oldestDebtDays + 'd' : '—' }}</td>
+            <td class="num mono">
+              {{ row.lastActivityAt ? (row.lastActivityAt | date: 'd MMM yy') : '—' }}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p *ngIf="!visibleRows.length && searchingNow" class="book-none">
+        Nobody by that name or mobile.
+      </p>
+      <p *ngIf="!visibleRows.length && !searchingNow" class="book-none">
+        Nobody owes anything and nobody is holding money with us. The book is clear.
+      </p>
+
+      <p *ngIf="searchingNow" class="book-note">
+        <span class="book-note-label">About this search</span>
+        <span>It matches by name or mobile across every customer, so it can turn up someone
+          who is settled up — which the position column says. The list behind it is only the
+          people with a tab, oldest debt first. Clear the box to go back to it.</span>
+      </p>
+    </ng-container>
+
+    <!--
+      ⚠ Named on the screen, not left as a missing button. #16 is deferred to S6 and the
+      reason is a correctness one, not a scheduling one.
+    -->
+    <p class="book-note book-note-gap">
+      <span class="book-note-label">Taking a payment is not here yet</span>
+      <span>A receipt has to come off the oldest debt first, and each of those debts names
+        the business it came from — so taking one against the tally shown here would post
+        water debt against recharge. The legacy balances also are not in the ledger yet. It
+        is built once they are, and until then a payment is recorded the way it is
+        today.</span>
+    </p>
+
+    <!--
+      ⚠ Said on the screen because a staff member will otherwise be told two different
+      things by two screens, and have no way to know which to believe.
+    -->
+    <p class="book-note">
+      <span class="book-note-label">One thing this book does not see</span>
+      <span>Money kept on someone's account when a failed recharge was given back does not
+        show up here yet — it is held in the ledger rather than on the tab these figures
+        read. If a customer says they have money with us and this screen says otherwise,
+        that is why, and the ledger is the one that is right.</span>
+    </p>
+  </div>
+
+  <!-- ===================================================== one person's tab -->
+  <div class="book-side" *ngIf="selectedId !== null">
+    <!--
+      ⚠ `aria-label`, not `aria-labelledby`. The heading it used to point at lives inside
+      the loaded branch, so on the error path it named an element that was not in the DOM.
+    -->
+    <section class="card" aria-label="One person's tab">
+
+      <p *ngIf="statementLoading" class="tab-loading">Reading the tab…</p>
+
+      <!--
+        ⚠ Its own Close. The one below sits inside the loaded branch, so a failed read left
+        the panel open with no way out — and this screen provokes that case deliberately,
+        by letting the search return customers who have no credit record at all.
+      -->
+      <ng-container *ngIf="statementError">
+        <p class="book-fault" role="alert">{{ statementError }}</p>
+        <div class="tab-head">
+          <button type="button" class="btn btn-small" (click)="closeStatement()">Close</button>
+        </div>
+      </ng-container>
+
+      <ng-container *ngIf="statement as tab">
+        <header class="tab-head">
+          <h3 id="tab-heading" class="tab-name">{{ tab.name }}</h3>
+          <button type="button" class="btn btn-small" (click)="closeStatement()">Close</button>
+        </header>
+
+        <p class="mono tab-mobile">{{ tab.contactNumber }}</p>
+
+        <div class="tab-position" [class.tab-position-warn]="tab.warn">
+          <p class="tab-position-figure">{{ positionWord(tab) }}</p>
+          <p *ngIf="tab.oldestDebtDays !== null" class="tab-position-note">
+            Oldest unpaid for {{ tab.oldestDebtDays }}
+            {{ tab.oldestDebtDays === 1 ? 'day' : 'days' }}<span *ngIf="tab.warn">
+              — worth chasing</span>.
+          </p>
+          <p class="tab-position-note">
+            Every business on one tab. This is the same figure the counter shows before a
+            credit sale, read the same way, so the two cannot disagree.
+          </p>
+        </div>
+
+        <ul class="lines" *ngIf="statementLines.length">
+          <li *ngFor="let line of statementLines; trackBy: trackByLine" class="line">
+            <span class="line-when">{{ line.at | date: 'd MMM yy' }}</span>
+            <span class="line-what">
+              {{ lineWord(line) }}
+              <!--
+                ⚠ `extendedBy` is null on every historical row, and §8.8 found that no
+                record of who extended a legacy credit exists anywhere. Rendered as
+                ordinary absence: no empty slot, no "unknown".
+              -->
+              <span *ngIf="line.extendedBy" class="line-by">· {{ line.extendedBy }}</span>
+              <span *ngIf="line.note" class="line-note">· {{ line.note }}</span>
+            </span>
+            <!-- ⚠ The magnitude. `amount` arrives signed; the word above carries the way. -->
+            <span class="mono line-amount">₹{{ lineAmount(line) | number: '1.2-2' }}</span>
+            <!-- The one signed figure in this API. -->
+            <span class="mono line-balance">{{ balanceWord(line.runningBalance) }}</span>
+          </li>
+        </ul>
+
+        <p *ngIf="!statementLines.length && !statementLoading" class="book-none">
+          Nothing on this tab.
+        </p>
+
+        <div class="pager" *ngIf="statementTotalPages > 1">
+          <button type="button" class="btn btn-small" [disabled]="statementPage === 0"
+                  (click)="statementGoToPage(statementPage - 1)">Previous</button>
+          <span class="pager-where">Page {{ statementPage + 1 }} of {{ statementTotalPages }}</span>
+          <button type="button" class="btn btn-small"
+                  [disabled]="statementPage + 1 >= statementTotalPages"
+                  (click)="statementGoToPage(statementPage + 1)">Next</button>
+        </div>
+      </ng-container>
+    </section>
+  </div>
+</div>

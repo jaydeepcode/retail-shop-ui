@@ -18,12 +18,22 @@ import { errorSentence } from '../../recharge/services/recharge-error';
  *
  * What the till reconciles against:
  *
- *     the recharge till today  =  cashCollectedToday  ==  tenderMix.CASH
+ *     the recharge till today  =  cashCollectedToday  ==  tenderMix.CASH − cashPaidOutToday
  *
- * Two independent readings of the same number — the day's `CASH_RECHARGE` movement from the
- * ledger, and today's cash tender rows — which the backend asserts must agree. There is no
- * arithmetic here to get wrong, and that is deliberate, because this panel got it wrong
- * twice:
+ * ⚠ THE THIRD TERM IS NOT OPTIONAL, and omitting it is how this screen accused a correct
+ * day of a mismatch. The identity was two terms for as long as money could only come IN.
+ * `ck_txnpay_amount CHECK (AMOUNT > 0)` makes a negative tender line unrepresentable —
+ * V12's way of saying the tender rows record what was COLLECTED and never the net of a
+ * visit — so a refund moves the ledger figure and leaves the tender figure alone. Driving
+ * one refund through a running backend read 849 against 1199, and no test caught it
+ * because every fixture was a day with no refund in it.
+ *
+ * Still two INDEPENDENT readings: the day's `CASH_RECHARGE` net movement from the ledger
+ * against today's tender rows less today's pay-outs, which come from different tables. A
+ * disagreement means a posting is wrong rather than a count being off. The subtraction is
+ * the only arithmetic on this screen, and it is here rather than server-side because both
+ * terms are already on the wire — but neither TERM is computed here, which is what matters,
+ * because this panel got that wrong twice:
  *
  *   1. It shipped summing `totalTakings + heldPending`, which omitted our own charge.
  *      `totalTakings` is the recharge FACE VALUE and the surcharge is deliberately its own
@@ -117,10 +127,14 @@ export class DaySummaryComponent implements OnInit, OnDestroy {
   /**
    * Whether the two independent readings of today's cash agree.
    *
-   * The ledger's `CASH_RECHARGE` movement and the sum of today's cash tender rows are
-   * computed from different tables, so a disagreement means a posting is wrong rather than
-   * a count being off — which is worth surfacing on the screen that exists to be trusted
-   * against a physical drawer.
+   * The ledger's net `CASH_RECHARGE` movement against today's cash tender rows LESS what
+   * went back out. The two sides come from different tables, so a disagreement means a
+   * posting is wrong rather than a count being off — which is worth surfacing on the one
+   * screen that exists to be trusted against a physical drawer.
+   *
+   * ⚠ `cashPaidOutToday` belongs on the TENDER side of this comparison, not the ledger
+   * side. `cashCollectedToday` is already net of it; subtracting it from both would make a
+   * refund day disagree by exactly the refund.
    *
    * Paise compared as integers, because two JSON floats that should be equal sometimes are
    * not.
@@ -129,10 +143,28 @@ export class DaySummaryComponent implements OnInit, OnDestroy {
     if (!this.summary) {
       return true;
     }
-    const fromTenders = this.summary.tenderMix.CASH ?? 0;
-    return (
-      Math.round(this.summary.cashCollectedToday * 100) === Math.round(fromTenders * 100)
-    );
+    const fromTenders = Math.round((this.summary.tenderMix.CASH ?? 0) * 100)
+      - Math.round((this.summary.cashPaidOutToday ?? 0) * 100);
+    return Math.round(this.summary.cashCollectedToday * 100) === fromTenders;
+  }
+
+  /** Whether any cash went back over the counter today. Zero on most days. */
+  get hasPaidOut(): boolean {
+    return !!this.summary && this.summary.cashPaidOutToday > 0;
+  }
+
+  get paidOut(): number {
+    return this.summary?.cashPaidOutToday ?? 0;
+  }
+
+  /**
+   * Today's cash tender rows, gross — what was collected before anything went back.
+   *
+   * Shown beside the pay-out on a refund day so the two terms of the identity are both on
+   * the screen. A staff member counting the drawer has to know ₹350 left it.
+   */
+  get cashTakenGross(): number {
+    return this.summary?.tenderMix.CASH ?? 0;
   }
 
   get hasHeldMoney(): boolean {

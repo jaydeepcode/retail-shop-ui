@@ -22,7 +22,16 @@
     <!-- The gate's figure, and the two terms it is made of. -->
     <div class="figures">
       <div class="figure figure-lead">
-        <p class="figure-label">The books expect the till to hold</p>
+        <!--
+          ⚠ The label follows the figure, which is a NET movement now and not a holding.
+          Refund an earlier day's failure on a day with no cash sales and this reads
+          "₹-350.00" — correct, and `tillSourcesAgree` is rightly quiet about it, but not a
+          statement about what is in the drawer. "Moved today" is true in both directions.
+        -->
+        <p class="figure-label">
+          {{ booksExpect < 0 ? 'The books say cash moved OUT today'
+                             : 'The books say the recharge till took in' }}
+        </p>
         <p class="mono figure-value">₹{{ booksExpect | number: '1.2-2' }}</p>
         <!--
           ⚠ NOT A SUM ANY MORE. Every arithmetic form of this figure was wrong: "takings +
@@ -31,9 +40,18 @@
           straight from the ledger's cash movement for the day, and the line below says
           where it came from rather than how it was added up.
         -->
-        <p class="figure-sum mono">cash taken for recharge today, from the ledger</p>
+        <p class="figure-sum mono">net cash moved for recharge today, from the ledger</p>
+        <!--
+          ⚠ Shown, not just subtracted. On a day with a refund in it the lead figure sits
+          BELOW the cash that was taken, and a staff member counting the drawer has to be
+          told why rather than left to find the gap.
+        -->
+        <p *ngIf="hasPaidOut" class="figure-paidout">
+          <span class="mono">₹{{ cashTakenGross | number: '1.2-2' }}</span> taken, less
+          <span class="mono">₹{{ paidOut | number: '1.2-2' }}</span> handed back today.
+        </p>
         <p *ngIf="!tillSourcesAgree" class="figure-warn" role="alert">
-          ⚠ The ledger and today's payment lines disagree about the cash taken. That means a
+          ⚠ The ledger and today's payment lines disagree about the cash moved. That means a
           posting is wrong, not a miscount — do not reconcile against this figure.
         </p>
       </div>
@@ -79,6 +97,14 @@
           <span class="mono tender-value">₹{{ entry.amount | number: '1.2-2' }}</span>
         </li>
         <li *ngIf="!tenderMix.length" class="tender-none">Nothing taken yet today.</li>
+        <!--
+          ⚠ A separate line, never a negative tender row. `ck_txnpay_amount CHECK
+          (AMOUNT > 0)` means no such row can exist, and the list above is the tender rows.
+        -->
+        <li *ngIf="hasPaidOut" class="tender-out">
+          <span class="tender-label">Handed back</span>
+          <span class="mono tender-value">−₹{{ paidOut | number: '1.2-2' }}</span>
+        </li>
       </ul>
       <p *ngIf="nonCashTaken > 0" class="tender-note">
         <span class="mono">₹{{ nonCashTaken | number: '1.2-2' }}</span> of that never reached

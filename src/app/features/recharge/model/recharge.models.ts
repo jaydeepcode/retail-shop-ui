@@ -34,6 +34,20 @@ export type RechargeStatus = 'AWAITING_RECHARGE' | 'COMPLETED' | 'FAILED' | 'VOI
 export type FailureResolution = 'NONE' | 'RETRIED' | 'REFUNDED';
 
 /**
+ * `domain/ResidualMode.java` — the three ways money can leave `RCHG_PENDING`.
+ *
+ * ⚠ NOT a `SettlementMethod` and not interchangeable with one. A settlement method is
+ * how money came IN; a residual mode is how it goes back OUT, and the two lists differ
+ * where it matters: there is no `UPI` here, because nothing in the slice reverses a UPI
+ * collection. A UPI-only payment can therefore only be settled as `KEEP_AS_ADVANCE`.
+ *
+ * Which modes are AVAILABLE is a fact about the original payment and never a choice —
+ * `RechargeFailureResolutionService.java:317-332` derives it from that payment's tender
+ * lines. A 422 `REFUND_MODE_NOT_AVAILABLE` carries the list in `details.available`.
+ */
+export type ResidualMode = 'CASH' | 'KEEP_AS_ADVANCE' | 'CREDIT_REDUCTION';
+
+/**
  * `exception/ErrorCode.java`. These names are the contract: §8.4 says `message` may be
  * reworded freely and `code` may not, because a keyboard-driven counter has to decide
  * where to put the cursor and cannot do that from prose.
@@ -280,6 +294,96 @@ export interface HistoryPageResponse {
 }
 
 /**
+ * `response/RetryRechargeResponse.java` — both halves of a retry, in one payload.
+ *
+ * ⚠ Carries BOTH recharges on purpose, so the screen can drop the failure off the
+ * failures tray and put the new attempt on the worklist without a second read.
+ *
+ * Exactly one of the two settlement pairs is populated, and on an equal-amount retry
+ * neither is: `differenceOwed`/`differenceSettledAs` when the new amount is lower,
+ * `topUpTaken`/`topUpTakenAs` when it is higher.
+ */
+export interface RetryRechargeResponse {
+  newRecharge: RechargeResponse;
+  originalRecharge: RechargeResponse;
+  differenceOwed: number | null;
+  differenceSettledAs: ResidualMode | null;
+  topUpTaken: number | null;
+  topUpTakenAs: SettlementMethod | null;
+  /** Present when the difference or the top-up touched someone's tab. */
+  credit: CreditSummaryResponse | null;
+}
+
+/** `response/RefundResponse.java`. */
+export interface RefundResponse {
+  recharge: RechargeResponse;
+  amount: number;
+  mode: ResidualMode;
+  /** Present for `CREDIT_REDUCTION` and `KEEP_AS_ADVANCE`, which name a customer. */
+  credit: CreditSummaryResponse | null;
+}
+
+/**
+ * `response/CreditBookRowResponse.java` — one person on the credit book (#14).
+ *
+ * ⚠ `outstanding` and `advanceHeld` are BOTH POSITIVE and only one is ever non-zero.
+ * This is one netted position, shown as "owes ₹120" or "has ₹80 with us" — never as two
+ * numbers side by side.
+ *
+ * ⚠ The figure is ACROSS EVERY BUSINESS and never year-filtered (log §14.8). Someone
+ * owing ₹2,000 on water and ₹49 on recharge shows ₹2,049, because a recharge-scoped
+ * figure would make `warn` understate the exposure while looking authoritative.
+ */
+export interface CreditBookRowResponse {
+  customerId: number;
+  name: string;
+  contactNumber: string;
+  outstanding: number;
+  advanceHeld: number;
+  /** Null when nothing is owed. Server-computed; never re-derived here. */
+  oldestDebtDays: number | null;
+  /** The 30-day rule, applied server-side so two clients cannot disagree. */
+  warn: boolean;
+  lastActivityAt: string;
+}
+
+/** `response/CreditStatementResponse.StatementLineResponse.java` — one line of a tab. */
+export interface StatementLineResponse {
+  creditRequestId: number;
+  at: string;
+  /** Free text from the server; `type` is not a closed enum on the wire. */
+  type: string;
+  amount: number;
+  /** The one SIGNED figure in this API. Everything else is a positive magnitude. */
+  runningBalance: number;
+  note: string | null;
+  /**
+   * ⚠ Null on every historical row, and that is ORDINARY rather than missing data:
+   * §8.8 found that no record of who extended a legacy credit exists anywhere. Render
+   * its absence plainly; do not draw an empty slot for it.
+   */
+  extendedBy: string | null;
+  paymentId: number | null;
+}
+
+/**
+ * `response/CreditStatementResponse.java` — one person's tab, newest first (#15).
+ *
+ * The header figures come from the same `positionOf` the counter's credit panel uses,
+ * so what a staff member sees here cannot disagree with what they saw taking the sale.
+ */
+export interface CreditStatementResponse {
+  customerId: number;
+  name: string;
+  contactNumber: string;
+  outstanding: number;
+  advanceHeld: number;
+  oldestDebtDays: number | null;
+  warn: boolean;
+  lines: PageResponse<StatementLineResponse>;
+}
+
+/**
  * `response/DaySummaryResponse.java` — what the slice's gate reads
  * (`implementation-plan.md:125`, "compare the day summary to the drawer").
  */
@@ -302,11 +406,17 @@ export interface DaySummaryResponse {
    */
   totalCollected: number;
   /**
-   * The day's net movement on `CASH_RECHARGE`, read from the ledger.
+   * The day's NET movement on `CASH_RECHARGE`, read from the ledger.
    *
-   * ⚠ THIS IS WHAT THE TILL RECONCILES AGAINST, and it should equal
-   * `tenderMix.CASH` — two independent readings of the same number, one from the
-   * ledger and one from today's tender rows. If they disagree, a posting is wrong.
+   * ⚠ THIS IS WHAT THE TILL RECONCILES AGAINST, and the identity has three terms:
+   *
+   *     cashCollectedToday  =  tenderMix.CASH  −  cashPaidOutToday
+   *
+   * It was two until money could leave the till. `ck_txnpay_amount CHECK (AMOUNT > 0)`
+   * makes a negative tender line unrepresentable — V12's way of saying the tender rows
+   * record what was COLLECTED, never the net of a visit — so a refund moves the ledger
+   * figure and leaves the tender figure untouched. Driving one refund through a running
+   * backend read 849 against 1199.
    *
    * It replaces two earlier formulas, both of which this screen shipped or nearly did:
    *
@@ -320,6 +430,13 @@ export interface DaySummaryResponse {
    * fixture. There is no addition left here to get wrong.
    */
   cashCollectedToday: number;
+  /**
+   * What went back over the counter today: the credit side of `CASH_RECHARGE`.
+   *
+   * Zero on most days, and worth SHOWING on the days it is not rather than only
+   * subtracting — a staff member counting the drawer needs to know ₹350 left it.
+   */
+  cashPaidOutToday: number;
   /** Keys are absent when zero, so a missing `UPI` means none was taken. */
   tenderMix: Partial<Record<SettlementMethod, number>>;
   awaitingCount: number;
@@ -394,6 +511,64 @@ export interface MarkCompleteRequest {
 /** `request/MarkFailedRequest.java`. */
 export interface MarkFailedRequest {
   reason?: string;
+}
+
+/**
+ * `request/RetryRechargeRequest.java` — #12.
+ *
+ * ⚠ `amount` is the FACE VALUE. The original line's surcharge carries over unchanged, so
+ * a DTH retry still carries its ₹10, and the difference is the change in face value — the
+ * only number the staff member typed.
+ *
+ * ⚠ EXACTLY ONE of the two settlement fields is required, and sending the wrong one is a
+ * 422 `UNSETTLED_DIFFERENCE`:
+ *
+ *   - lower than the original → `differenceSettlement` (money going back out)
+ *   - higher than the original → `topUp` (money coming back in)
+ *   - the same → NEITHER, and sending either is refused
+ *
+ * Both directions are refused rather than one ignored: silently dropping a cash-back
+ * would leave the staff member believing money changed hands while the drawer disagrees
+ * (`RechargeFailureResolutionService.java:286-288`).
+ */
+export interface RetryRechargeRequest {
+  amount: number;
+  differenceSettlement?: {
+    mode: ResidualMode;
+    customerId?: number | null;
+    note?: string | null;
+  };
+  /**
+   * ⚠ Not in `design-api.md` §3.3, which has no field for money coming IN. Log §7.4
+   * says the same mechanism covers the opposite direction, so the server added it
+   * deliberately. A top-up appends a tender line to the ORIGINAL payment and raises
+   * its total; it never creates a second payment.
+   */
+  topUp?: {
+    method: SettlementMethod;
+    customerId?: number | null;
+    note?: string | null;
+  };
+}
+
+/**
+ * `request/RefundRechargeRequest.java` — #13.
+ *
+ * ⚠ `amount` must be the WHOLE line total, SURCHARGE INCLUDED. A partial refund is a
+ * 422: `REFUNDED` is terminal, so anything left behind would sit in `RCHG_PENDING`
+ * against a recharge that can never be retried, completed or refunded again.
+ *
+ * ⚠ `customerId` is IGNORED for `CREDIT_REDUCTION` — the money goes to the customer on
+ * the original payment's credit line, because letting a request name a different one
+ * would move a debt between two people's accounts
+ * (`RechargeFailureResolutionService.java:349-357`). It is required for
+ * `KEEP_AS_ADVANCE`.
+ */
+export interface RefundRechargeRequest {
+  amount: number;
+  mode: ResidualMode;
+  customerId?: number | null;
+  note?: string | null;
 }
 
 /** `request/CreateCustomerRequest.java`. `lastName` is deliberately not required. */

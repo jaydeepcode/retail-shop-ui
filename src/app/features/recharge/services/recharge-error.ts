@@ -108,8 +108,11 @@ export function errorSentence(error: unknown): string {
       return `${details['operatorCode'] ?? 'This operator'} has no commission rate on file`
         + ' — add one to complete.';
 
-    case 'REASON_REQUIRED':
-      return 'A reason is required.';
+    case 'UPI_REQUIRES_REFERENCE':
+      // The whole point of a UPI refund is a trace back to the actual transfer, and the
+      // gap is found at reconciliation time when it can no longer be reconstructed. So
+      // the sentence names the field rather than the rule.
+      return 'A UPI refund needs the UPI transaction reference in the note.';
 
     case 'DUPLICATE_RETRY':
       // ⚠ Not an error to retry. V29's unique key means the request LOST A RACE, so the

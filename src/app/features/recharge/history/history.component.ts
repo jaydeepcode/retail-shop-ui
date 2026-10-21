@@ -66,12 +66,22 @@ export class HistoryComponent implements OnInit, OnDestroy {
   page = 0;
   readonly size = 20;
 
+  /**
+   * ⚠ NO "Voided" OPTION since 2026-10-21, and only the FILTER came out.
+   *
+   * The void path was withdrawn (log §16.1), so `VOIDED` is now a status that is defined,
+   * terminal and unreachable — nothing creates one, which makes a filter for it one that
+   * can only ever return nothing. The rest of this component's `VOIDED` handling STAYS:
+   * `statusLabel`, `statusTone` and the struck-through row in the template. The status is
+   * still mapped on the wire and V9 still seeds the reference row, so if such a row ever
+   * appeared from any source this screen must still render it honestly. Only the filter is
+   * dead, because only the creation path is.
+   */
   readonly statuses: { value: RechargeStatus | ''; label: string }[] = [
     { value: '', label: 'All' },
     { value: 'COMPLETED', label: 'Done' },
     { value: 'AWAITING_RECHARGE', label: 'Waiting' },
-    { value: 'FAILED', label: 'Failed' },
-    { value: 'VOIDED', label: 'Voided' }
+    { value: 'FAILED', label: 'Failed' }
   ];
 
   private readonly numberProbe = new Subject<void>();

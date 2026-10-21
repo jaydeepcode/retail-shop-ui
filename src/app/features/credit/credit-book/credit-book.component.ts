@@ -56,18 +56,29 @@ const BOOK_PAGE_SIZE = 100;
  * tally-first version built against these two read endpoints would post water debt to
  * `AR_RECHARGE`. So this screen reads and does not collect, and says so on the screen.
  *
- * ⚠ AN ADVANCE KEPT FROM A REFUND DOES NOT APPEAR HERE, and that is a backend gap rather
- * than a display one. `KEEP_AS_ADVANCE` posts a ledger leg to `ADV_RECHARGE` with the
- * customer as party (`RechargeLedgerPostings.java:426`); this book and the statement read
- * `rc_credit_req`, which that path never writes. So the failure screen can tell a customer
+ * ⚠ THE ONE GAP THIS SCREEN USED TO CARRY IS CLOSED, and how it closed is worth keeping.
+ * An advance kept from a refund did not appear here: `KEEP_AS_ADVANCE` posted a ledger leg
+ * to `ADV_RECHARGE` with the customer as party, while this book and the statement read
+ * `rc_credit_req`, which that path never wrote. So the failure screen could tell a customer
  * "₹250 kept on your account" and this screen — the one whose whole job is each person's
- * position — shows them holding nothing. Observed against a running backend: Asha Kale,
- * ₹250 kept, `advanceHeld` 0.00 and an empty statement.
+ * position — showed them holding nothing. Observed against a running backend on 2026-10-19:
+ * Asha Kale, ₹250 kept, `advanceHeld` 0.00, an empty statement.
  *
- * It is NOT worked around here. Netting a ledger balance into these figures on the client
- * would be a second formula for a number the server owns, which is the one thing every
- * screen in this slice is built not to do — and it would disagree with the counter's
- * credit panel, which reads the same `positionOf`. Reported for the backend to settle.
+ * ⚠ It was NOT worked around here, and that is why it was fixed properly. Netting a ledger
+ * balance into these figures on the client would have been a second formula for a number
+ * the server owns — the one thing every screen in this slice is built not to do — and it
+ * would have disagreed with the counter's credit panel, which reads the same `positionOf`.
+ * It was reported instead, and the backend withdrew `KEEP_AS_ADVANCE` on 2026-10-21 (log
+ * §16.2): nothing debits `ADV_RECHARGE`, so the mode changed the liability's shape rather
+ * than ending it. `ResidualMode.UPI` took its place. **Nothing writes `ADV_RECHARGE` any
+ * more, so these figures are complete**, and the on-screen note that described the gap
+ * came out with it.
+ *
+ * ⚠ AN "ADD ADVANCE" CONTROL IS STILL NOT HERE, and was considered and dropped. log §2.8
+ * requires a receipt to settle outstanding debt first and only then hold a remainder, and
+ * the settle half cannot be built until V30/V31 puts legacy debt in the ledger. A version
+ * restricted to customers who owe nothing would be disabled for almost every row on a
+ * screen that exists to list people who owe.
  *
  * ⚠ THE LIST AND THE SEARCH COME FROM DIFFERENT ENDPOINTS, because #14 has no query
  * parameter. Browsing is #14 (`/credit/customers`), ordered oldest-debt-first with nulls

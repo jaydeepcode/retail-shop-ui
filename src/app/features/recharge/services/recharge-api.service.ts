@@ -41,23 +41,21 @@ import {
  * until the opening balances land (V30/V31). A tally-first version would post water debt
  * to `AR_RECHARGE`, so the credit book below READS and does not collect.
  *
- * ⚠ `POST /recharge/recharges/{id}/void` (#19) is built on the server and is still
- * deliberately absent here — but for a DIFFERENT reason from the one this comment used
- * to give. The old reason is dead: `RechargeFulfilmentService.java:229` does post the
- * reversing JOURNAL (`RechargeLedgerPostings.java:334`), so the ledger no longer
- * overstates income after a void.
+ * ⚠ `POST /recharge/recharges/{id}/void` (#19) IS GONE FROM THE SERVER as of 2026-10-21,
+ * and the reason this comment gives has changed with it. It is no longer "built but unsafe
+ * to wire" — it is WITHDRAWN (log §16.1), and `design-api.md` §3.2 strikes the row through.
  *
- * The live reason is that a void STRANDS the customer's money. `RechargeLedgerPostings`
- * `.java:321-326` returns the amount to `RCHG_PENDING` and says §7.4's residual
- * mechanism settles it from there — and it cannot:
- * `RechargeFailureResolutionService.java:263-278` refuses any status that is not
- * `FAILED` and names `VOIDED` as one it rejects. So nothing can hand that money back,
- * and `heldPending` has no date filter, so it would sit on the day summary for good.
+ * Why, because it is the same argument this file used to make for not wiring it: a void
+ * STRANDED the customer's money. It returned the amount to `RCHG_PENDING` and said §7.4's
+ * residual mechanism settles it from there — and that mechanism refuses any status but
+ * `FAILED`, while `heldPending` has no date filter, so the amount would have sat on the
+ * day summary for good. The screens found it; the backend removed the path rather than
+ * leaving a button nobody could safely press.
  *
- * The correction that works today is `COMPLETED → FAILED` (which posts the same
- * reversal, `RechargeFulfilmentService.java:179-183`) and then `refund`, both of which
- * this service does expose. Wiring `/void` is a backend contradiction to settle first,
- * not a button to add.
+ * The correction that works is `COMPLETED → FAILED` — which posts the identical reversal —
+ * and then `refund`, both of which this service exposes. There is nothing left to wire,
+ * and `RechargeStatus.VOIDED` survives only as a status that is defined, terminal and
+ * unreachable, so a row from any source still renders.
  */
 @Injectable({ providedIn: 'root' })
 export class RechargeApiService {

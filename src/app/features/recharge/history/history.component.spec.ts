@@ -143,22 +143,42 @@ describe('HistoryComponent', () => {
   });
 
   /**
-   * ⚠ Still no void control, but for the live reason rather than the dead one.
+   * ⚠ Still no void control, and the reason has moved again — which is the point of
+   * asserting the words rather than only the absence of a button.
    *
-   * The reversing voucher is posted now, so "the books would overstate income" is no
-   * longer true and the note no longer says it. What a void cannot do is hand the money
-   * back — it returns it to `RCHG_PENDING`, which only a refund can clear, and a refund
-   * refuses a `VOIDED` recharge. The working correction is mark-failed then refund.
+   * It was "the books would overstate income", then "a void cannot hand the money back".
+   * Now the endpoint is WITHDRAWN (log §16.1): the second reason is exactly why the
+   * backend removed it. A delivered sale that should be undone is marked failed and then
+   * given back, both of which have buttons here.
    */
   it('offers no way to void a completed sale, and says what to do instead', () => {
     respond(page([row({ status: 'COMPLETED' })], ['2026-27']));
     const text = fixture.nativeElement.textContent as string;
     expect(text).not.toContain('Void it');
     expect(fixture.nativeElement.querySelector('[data-void]')).toBeNull();
-    expect(text).toContain('still has no button');
+    expect(text).toContain('withdrawn');
     expect(text).toContain('marked failed and then given back');
-    // ⚠ And it must no longer repeat the claim that is now false.
+    // ⚠ And it must repeat neither of the two reasons that have since gone stale.
     expect(text).not.toContain('the reversing voucher is not posted');
+    expect(text).not.toContain('still has no button');
+  });
+
+  /**
+   * ⚠ THE FILTER GOES AND THE RENDERING STAYS, which is the whole of item 3.
+   *
+   * `VOIDED` is now defined, terminal and unreachable, so a filter for it could only ever
+   * return nothing. But the status is still on the wire and V9 still seeds the reference
+   * row, so a row from any source must still render honestly rather than fall through a
+   * switch.
+   */
+  it('no longer offers a Voided filter, but still renders a voided row', () => {
+    respond(page([row()], ['2026-27']));
+    expect(history.statuses.map((s) => s.value)).toEqual([
+      '', 'COMPLETED', 'AWAITING_RECHARGE', 'FAILED'
+    ]);
+
+    expect(history.statusLabel(row({ status: 'VOIDED' }))).toBe('VOIDED');
+    expect(history.statusTone(row({ status: 'VOIDED' }))).toBe('muted');
   });
 
   it('badges a resolved failure with its resolution, which is a separate field', () => {

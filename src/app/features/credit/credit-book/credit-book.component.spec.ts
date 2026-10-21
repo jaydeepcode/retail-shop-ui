@@ -447,17 +447,27 @@ describe('CreditBookComponent', () => {
   });
 
   /**
-   * ⚠ A `KEEP_AS_ADVANCE` refund posts to the LEDGER (`ADV_RECHARGE`), not to
-   * `rc_credit_req` — so the money never reaches this book, and a customer told "₹250 kept
-   * on your account" shows here as holding nothing. Observed against a running backend.
-   * Said on the screen rather than netted in on the client, which would be a second
-   * formula for a number the server owns.
+   * ⚠ THIS REVERSES WHAT THE SAME TEST ASSERTED, and the reversal is the deliverable.
+   *
+   * It used to require the screen to say "One thing this book does not see": a
+   * `KEEP_AS_ADVANCE` refund posted to the LEDGER (`ADV_RECHARGE`) and never to
+   * `rc_credit_req`, so a customer told "₹250 kept on your account" showed here as holding
+   * nothing — observed against a running backend on 2026-10-19.
+   *
+   * It was said on the screen rather than netted in on the client, which would have been a
+   * second formula for a number the server owns. It was reported instead, and the backend
+   * withdrew the mode on 2026-10-21 (log §16.2). Nothing writes `ADV_RECHARGE` any more,
+   * so the note would now be a stale claim about the one screen whose job is each person's
+   * position — and this test is what stops it coming back.
    */
-  it('says plainly that an advance kept from a refund is not on this book', () => {
+  it('no longer warns about an advance it cannot see, because there is none', () => {
     load([row()]);
     const text = fixture.nativeElement.textContent as string;
-    expect(text).toContain('One thing this book does not see');
-    expect(text).toContain('the ledger is the one that is right');
+    expect(text).not.toContain('One thing this book does not see');
+    expect(text).not.toContain('the ledger is the one that is right');
+    // ⚠ The note about #16 is a DIFFERENT gap and stays: this screen still reads and does
+    // not collect, until the opening balances make the allocation possible.
+    expect(text).toContain('a payment is recorded the way it is');
   });
 
   /**

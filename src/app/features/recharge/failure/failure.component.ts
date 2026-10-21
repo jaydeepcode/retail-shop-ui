@@ -99,7 +99,7 @@ export class FailureComponent implements OnInit, OnDestroy {
   refundMode: ResidualMode | null = null;
   refundNote = '';
 
-  /** The customer a `KEEP_AS_ADVANCE` or a credit top-up names. */
+  /** The customer a credit top-up names. No residual mode needs one any more. */
   chosenCustomer: CreditCustomerResponse | null = null;
   customerQuery = '';
   customerResults: CreditCustomerResponse[] = [];
@@ -146,7 +146,7 @@ export class FailureComponent implements OnInit, OnDestroy {
      * ⚠ `distinctUntilChanged` BEFORE the debounce, and `''` is an event.
      *
      * After the debounce it compares against the last value it LET THROUGH, which survives
-     * the box being cleared. Pick Asha Kale for a `KEEP_AS_ADVANCE` refund, press Change,
+     * the box being cleared. Pick Asha Kale for a credit top-up, press Change,
      * and type the same name again: the emission is dropped as a duplicate, no request
      * goes out, and the screen tells the staff member "Nobody by that name or mobile. This
      * has to go to someone already on the books" about a customer who exists — with the
@@ -295,37 +295,56 @@ export class FailureComponent implements OnInit, OnDestroy {
     return this.paidBy.find((line) => line.method === 'CREDIT');
   }
 
+  private get upiLine(): SettlementLineResponse | undefined {
+    return this.paidBy.find((line) => line.method === 'UPI');
+  }
+
   /**
    * The modes money may leave `RCHG_PENDING` by, for this sale.
    *
    * ⚠ DERIVED FROM THE ORIGINAL PAYMENT, exactly as the server derives it
-   * (`RechargeFailureResolutionService.java:317-332`): cash only where cash was
-   * collected, credit reduction only where that payment carried a credit line, and
-   * keeping it on account always. This is not a guess — the screen is reading the same
-   * tender rows from the same payment.
+   * (`RechargeFailureResolutionService.resolveResidual`): ONE MODE PER TENDER LINE TYPE,
+   * so cash only where cash was collected, UPI only where UPI was, credit reduction only
+   * where that payment carried a credit line. This is not a guess — the screen is reading
+   * the same tender rows from the same payment.
+   *
+   * ⚠ THERE IS NO UNCONDITIONAL MODE ANY MORE, and that is the change of 2026-10-21
+   * rather than a side effect. `KEEP_AS_ADVANCE` used to be offered on every payment,
+   * which is exactly what let a UPI-only sale reach a one-way door: it credited
+   * `ADV_RECHARGE`, nothing debits that account, and the credit book reads the
+   * `rc_credit_req` tally so it could not see the money either (log §16.2). `UPI` took
+   * its place, and the money now goes home by a rail it actually arrived on.
    *
    * ⚠ It is a guess in ONE case: the payment read failed, so there are no tender rows
-   * here to reason from. Then the list is whatever a 422 last told us, and otherwise just
-   * `KEEP_AS_ADVANCE` — the one mode available on every payment — with the screen saying
-   * why the other two are not offered. Offering all three and letting the staff member
-   * discover the refusal would be the version that guesses.
+   * here to reason from. Then the list is whatever a 422 last told us, and otherwise
+   * empty — with the screen saying it cannot tell until the payment loads. There is no
+   * safe default left to fall back on, and inventing one would be the version that
+   * guesses: every mode now asserts something about the original payment, and offering a
+   * mode the sale cannot support would send money out by a rail it never came in on.
    */
   get residualModes(): ResidualMode[] {
     if (this.serverModes) {
       return this.serverModes;
     }
     if (!this.payment) {
-      return ['KEEP_AS_ADVANCE'];
+      return [];
     }
     const modes: ResidualMode[] = [];
     if (this.cashLine) {
       modes.push('CASH');
     }
-    modes.push('KEEP_AS_ADVANCE');
+    if (this.upiLine) {
+      modes.push('UPI');
+    }
     if (this.creditLine) {
       modes.push('CREDIT_REDUCTION');
     }
     return modes;
+  }
+
+  /** The payment has not loaded, so the screen cannot say which modes apply. */
+  get modesUnknown(): boolean {
+    return !this.payment && !this.serverModes;
   }
 
   /** The only tender that paid was UPI, so there is no cash to hand back. */
@@ -337,8 +356,8 @@ export class FailureComponent implements OnInit, OnDestroy {
     switch (mode) {
       case 'CASH':
         return 'Cash back';
-      case 'KEEP_AS_ADVANCE':
-        return 'Keep it on their account';
+      case 'UPI':
+        return 'Send it back by UPI';
       case 'CREDIT_REDUCTION':
         return 'Take it off what they owe';
     }
@@ -356,8 +375,8 @@ export class FailureComponent implements OnInit, OnDestroy {
     switch (mode) {
       case 'CASH':
         return 'Out of the drawer, now.';
-      case 'KEEP_AS_ADVANCE':
-        return 'Held against their name to spend next time.';
+      case 'UPI':
+        return 'Back down the rail it came in on. The reference is required.';
       case 'CREDIT_REDUCTION': {
         const name = this.creditLine?.customerName;
         return name
@@ -374,7 +393,25 @@ export class FailureComponent implements OnInit, OnDestroy {
    * the one on the original credit line and ignores whatever is sent.
    */
   needsCustomer(mode: ResidualMode | null): boolean {
-    return mode === 'KEEP_AS_ADVANCE';
+    // ⚠ NO MODE DOES, since KEEP_AS_ADVANCE was withdrawn on 2026-10-21. `CASH` and
+    // `UPI` credit accounts with REQUIRES_PARTY = FALSE, so a walk-in stays anonymous
+    // (FRD §8.7:316), and CREDIT_REDUCTION's customer is read off the original payment.
+    // Kept as a method rather than inlined as `false`, because it is the question the
+    // template asks and a future mode would answer it differently.
+    return false;
+  }
+
+  /**
+   * Whether this mode needs the UPI transaction reference in the note.
+   *
+   * ⚠ `UPI` alone, and it is the point of the mode rather than a formality: the note is
+   * the only trace from the `UPI_CLEARING` leg back to the actual transfer, and
+   * `UPI_CLEARING` is reconcilable, so a blank one is found when UPI is reconciled
+   * against the bank — too late to reconstruct. The server refuses it with a 422
+   * `UPI_REQUIRES_REFERENCE`; this is the same rule, asked before the request goes.
+   */
+  needsReference(mode: ResidualMode | null): boolean {
+    return mode === 'UPI';
   }
 
   // -- the retry panel ------------------------------------------------------
@@ -440,6 +477,7 @@ export class FailureComponent implements OnInit, OnDestroy {
         return (
           !!this.retryDifferenceMode
           && (!this.needsCustomer(this.retryDifferenceMode) || !!this.chosenCustomer)
+          && (!this.needsReference(this.retryDifferenceMode) || !!this.retryNote.trim())
         );
       case 'higher':
         return (
@@ -449,8 +487,21 @@ export class FailureComponent implements OnInit, OnDestroy {
     }
   }
 
+  /**
+   * Whether the refund can be sent.
+   *
+   * ⚠ The note is REQUIRED for `UPI`, matching the server's 422
+   * `UPI_REQUIRES_REFERENCE`. Checked here as well so the staff member is stopped at the
+   * field rather than at a refusal — the reference is the only trace from the
+   * `UPI_CLEARING` leg back to the actual transfer, and a blank one is found at
+   * reconciliation time when the transfer can no longer be reconstructed.
+   */
   get refundReady(): boolean {
-    return !!this.refundMode && (!this.needsCustomer(this.refundMode) || !!this.chosenCustomer);
+    return (
+      !!this.refundMode
+      && (!this.needsCustomer(this.refundMode) || !!this.chosenCustomer)
+      && (!this.needsReference(this.refundMode) || !!this.refundNote.trim())
+    );
   }
 
   // -- opening and closing the panels ---------------------------------------
@@ -661,8 +712,8 @@ export class FailureComponent implements OnInit, OnDestroy {
       switch (this.refunded.mode) {
         case 'CASH':
           return `₹${this.refunded.amount.toFixed(2)} handed back in cash.`;
-        case 'KEEP_AS_ADVANCE':
-          return `₹${this.refunded.amount.toFixed(2)} kept on ${whose} account.`;
+        case 'UPI':
+          return `₹${this.refunded.amount.toFixed(2)} sent back by UPI.`;
         case 'CREDIT_REDUCTION':
           return `₹${this.refunded.amount.toFixed(2)} taken off ${whose} tab.`;
       }
@@ -674,8 +725,8 @@ export class FailureComponent implements OnInit, OnDestroy {
         switch (differenceSettledAs) {
           case 'CASH':
             return `₹${differenceOwed.toFixed(2)} difference handed back in cash.`;
-          case 'KEEP_AS_ADVANCE':
-            return `₹${differenceOwed.toFixed(2)} difference kept on ${whose} account.`;
+          case 'UPI':
+            return `₹${differenceOwed.toFixed(2)} difference sent back by UPI.`;
           case 'CREDIT_REDUCTION':
             return `₹${differenceOwed.toFixed(2)} difference taken off ${whose} tab.`;
         }

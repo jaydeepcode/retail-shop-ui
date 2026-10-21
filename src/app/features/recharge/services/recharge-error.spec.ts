@@ -70,7 +70,9 @@ describe('recharge-error', () => {
   });
 
   it('does not mistake a real 403 business error for an expired session', () => {
-    const error = failure(403, { code: 'REASON_REQUIRED', message: 'reason', traceId: 'a' });
+    const error = failure(403, {
+      code: 'UPI_REQUIRES_REFERENCE', message: 'reference', traceId: 'a'
+    });
     expect(isPossiblyExpiredSession(error)).toBe(false);
   });
 

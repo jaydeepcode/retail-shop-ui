@@ -36,17 +36,19 @@ describe('RechargeApiService', () => {
   });
 
   /**
-   * ⚠ /void is built on the backend and must still NOT be reachable from a screen — but
-   * the old reason for that is dead and this test asserts the live one.
+   * ⚠ /void is WITHDRAWN ON THE SERVER as of 2026-10-21, not merely unwired — and the
+   * reason this test gives changes with it, exactly as PR #5's four stale claims did.
    *
-   * The reversing voucher IS posted now (`RechargeFulfilmentService.java:229`), so the
-   * ledger no longer overstates income after a void. What a void does is return the money
-   * to `RCHG_PENDING` and leave it there: `RechargeFailureResolutionService.java:263-278`
-   * refuses any status that is not `FAILED`, so no refund can ever settle it, and
-   * `heldPending` has no date filter. Asserted so that adding the method back trips a test
-   * rather than shipping a button that strands a customer's money.
+   * It was built, it worked, and it was removed (log §16.1): a void returned the money to
+   * `RCHG_PENDING` and nothing could take it out again, because the residual mechanism
+   * refuses any status but `FAILED` and `heldPending` has no date filter. This screen's
+   * own refusal to wire it is what surfaced that, and the argument has moved from here
+   * into the state machine, where `COMPLETED → VOIDED` no longer exists.
+   *
+   * Kept as an assertion rather than deleted, because the method would now 404 as well as
+   * strand money: adding it back should trip a test, not ship a dead button.
    */
-  it('exposes no void method, because nothing could settle the money afterwards', () => {
+  it('exposes no void method — the endpoint was withdrawn, not left unwired', () => {
     expect((api as unknown as Record<string, unknown>)['void']).toBeUndefined();
     expect((api as unknown as Record<string, unknown>)['voidRecharge']).toBeUndefined();
   });

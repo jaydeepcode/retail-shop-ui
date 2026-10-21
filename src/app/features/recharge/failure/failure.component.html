@@ -181,10 +181,18 @@
           note typed by a staff member would be silently dropped.
         -->
         <div class="field" *ngIf="retryDirection !== 'same'">
-          <label for="retry-note">Note (optional)</label>
+          <label for="retry-note">
+            {{ needsReference(retryDifferenceMode)
+              ? 'UPI transaction reference' : 'Note (optional)' }}
+          </label>
           <input id="retry-note" type="text" maxlength="255" [(ngModel)]="retryNote"
-                 name="retryNote">
-          <p class="field-note">Kept against the money that changes hands.</p>
+                 name="retryNote"
+                 [attr.required]="needsReference(retryDifferenceMode) ? '' : null">
+          <p class="field-note">
+            {{ needsReference(retryDifferenceMode)
+              ? 'Required — it is what ties this refund to the transfer at reconciliation.'
+              : 'Kept against the money that changes hands.' }}
+          </p>
         </div>
 
         <p *ngIf="submitError" class="panel-fault" role="alert">{{ submitError }}</p>
@@ -221,15 +229,18 @@
           <p class="settle-head">How is it going back?</p>
 
           <!--
-            ⚠ The list is a fact about the original payment, not a choice. A UPI-only sale
-            collected no cash, so there is none to hand over.
+            ⚠ The list is a fact about the original payment, not a choice: one mode per
+            tender line type, so the money goes home by a rail it actually arrived on.
+            A UPI-only sale collected no cash, so there is none to hand over — but it is
+            no longer stuck, which is what changed on 2026-10-21 (log §16.2).
           -->
           <p *ngIf="noCashToReturn" class="panel-note panel-note-plain">
-            No cash was collected on this payment, so there is none to hand back.
+            No cash was collected on this payment, so there is none to hand back — it goes
+            back the way it came in.
           </p>
-          <p *ngIf="paymentUnread" class="panel-note panel-note-warn">
-            The original payment could not be read, so the only option shown is the one
-            available on every payment. Reload to see the rest.
+          <p *ngIf="modesUnknown" class="panel-note panel-note-warn">
+            The original payment could not be read, so the screen cannot tell which way the
+            money may go back. Reload to choose.
           </p>
 
           <div class="modes">
@@ -245,10 +256,22 @@
           needed: needsCustomer(refundMode)
         }"></ng-container>
 
+        <!--
+          ⚠ REQUIRED FOR UPI, where it is the transaction reference. UPI_CLEARING is
+          reconcilable, so the amount surfaces when UPI is reconciled against the bank —
+          and this is the only trace from that line back to the actual transfer. A blank
+          one is found at reconciliation time, too late to reconstruct.
+        -->
         <div class="field">
-          <label for="refund-note">Note (optional)</label>
+          <label for="refund-note">
+            {{ needsReference(refundMode) ? 'UPI transaction reference' : 'Note (optional)' }}
+          </label>
           <input id="refund-note" type="text" maxlength="255" [(ngModel)]="refundNote"
-                 name="refundNote">
+                 name="refundNote"
+                 [attr.required]="needsReference(refundMode) ? '' : null">
+          <p *ngIf="needsReference(refundMode)" class="field-note">
+            Required — it is what ties this refund to the transfer at reconciliation.
+          </p>
         </div>
 
         <p *ngIf="submitError" class="panel-fault" role="alert">{{ submitError }}</p>
@@ -315,10 +338,12 @@
 <!--
   Naming the customer a mode that needs one goes to.
 
-  ⚠ Only `KEEP_AS_ADVANCE` and a CREDIT top-up reach here. `CREDIT_REDUCTION` does not,
-  even though it lands on a tab: the server reduces the original credit line's customer
-  and ignores a `customerId` in the request, because naming a different one would move a
-  debt between two people's accounts.
+  ⚠ ONLY A CREDIT TOP-UP REACHES HERE since 2026-10-21, when `KEEP_AS_ADVANCE` was
+  withdrawn. No residual mode needs a customer now: `CASH` and `UPI` credit accounts with
+  `REQUIRES_PARTY = FALSE`, so a walk-in stays anonymous, and `CREDIT_REDUCTION` does not
+  reach here either even though it lands on a tab — the server reduces the original credit
+  line's customer and ignores a `customerId` in the request, because naming a different one
+  would move a debt between two people's accounts.
 -->
 <ng-template #customerPicker let-needed="needed">
   <div *ngIf="needed" class="field field-customer">

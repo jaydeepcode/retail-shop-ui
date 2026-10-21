@@ -37,15 +37,30 @@ export type FailureResolution = 'NONE' | 'RETRIED' | 'REFUNDED';
  * `domain/ResidualMode.java` — the three ways money can leave `RCHG_PENDING`.
  *
  * ⚠ NOT a `SettlementMethod` and not interchangeable with one. A settlement method is
- * how money came IN; a residual mode is how it goes back OUT, and the two lists differ
- * where it matters: there is no `UPI` here, because nothing in the slice reverses a UPI
- * collection. A UPI-only payment can therefore only be settled as `KEEP_AS_ADVANCE`.
+ * how money came IN; a residual mode is how it goes back OUT. The two lists now line up
+ * on all three rails, and they did not before: until 2026-10-21 there was no `UPI` here,
+ * so a UPI-only payment could be settled only as `KEEP_AS_ADVANCE`.
+ *
+ * ⚠ `KEEP_AS_ADVANCE` IS WITHDRAWN, and `UPI` is what made that safe (log §16.2). The
+ * old mode was a one-way door: it credited `ADV_RECHARGE`, nothing debits that account,
+ * `SettlementMethod` has no `ADVANCE` member to draw it down, and the credit book reads
+ * the `rc_credit_req` tally so it could not see the money either. The liability changed
+ * shape instead of leaving — observed live on 2026-10-19 as ₹250 kept against an
+ * `advanceHeld` of 0.00 and an empty statement. Each original now has a route home by
+ * the rail it arrived on: cash hands cash back, credit reduces the tab, UPI refunds by
+ * UPI.
  *
  * Which modes are AVAILABLE is a fact about the original payment and never a choice —
- * `RechargeFailureResolutionService.java:317-332` derives it from that payment's tender
- * lines. A 422 `REFUND_MODE_NOT_AVAILABLE` carries the list in `details.available`.
+ * `RechargeFailureResolutionService.resolveResidual` derives it from that payment's
+ * tender lines, one mode per line type, with no unconditional fallback any more. A 422
+ * `REFUND_MODE_NOT_AVAILABLE` carries the list in `details.available`.
+ *
+ * ⚠ `UPI` REQUIRES THE NOTE, which carries the UPI transaction reference — a 422
+ * `UPI_REQUIRES_REFERENCE` otherwise. `UPI_CLEARING` is reconcilable, so the outgoing
+ * amount surfaces when UPI is reconciled against the bank, and the reference is the only
+ * trace from that line back to the actual transfer.
  */
-export type ResidualMode = 'CASH' | 'KEEP_AS_ADVANCE' | 'CREDIT_REDUCTION';
+export type ResidualMode = 'CASH' | 'UPI' | 'CREDIT_REDUCTION';
 
 /**
  * `exception/ErrorCode.java`. These names are the contract: §8.4 says `message` may be
@@ -72,6 +87,12 @@ export type ErrorCode =
   // 422
   | 'LINES_DO_NOT_SUM'
   | 'CREDIT_REQUIRES_CUSTOMER'
+  /**
+   * 422 on a UPI refund with no transaction reference in `note`. Separate from
+   * `REFUND_MODE_NOT_AVAILABLE` because the mode IS available and it is the note field
+   * that is wrong — which is where §8.4 says the cursor goes.
+   */
+  | 'UPI_REQUIRES_REFERENCE'
   | 'INVALID_TENDER'
   | 'UNSETTLED_DIFFERENCE'
   | 'REFUND_MODE_NOT_AVAILABLE'
@@ -84,7 +105,8 @@ export type ErrorCode =
    * staff can act on it by choosing another route, so the screen points at that control.
    */
   | 'FLOAT_ACCOUNT_NOT_DERIVABLE'
-  | 'REASON_REQUIRED'
+  // ⚠ 'REASON_REQUIRED' was removed on 2026-10-21: its one emitter was #19's void path,
+  // whose mandatory reason went with the endpoint. #10's reason is optional.
   // 500
   | 'INTERNAL_ERROR';
 
@@ -319,7 +341,7 @@ export interface RefundResponse {
   recharge: RechargeResponse;
   amount: number;
   mode: ResidualMode;
-  /** Present for `CREDIT_REDUCTION` and `KEEP_AS_ADVANCE`, which name a customer. */
+  /** Present for `CREDIT_REDUCTION`, the one mode that names a customer. */
   credit: CreditSummaryResponse | null;
 }
 
@@ -561,8 +583,12 @@ export interface RetryRechargeRequest {
  * ⚠ `customerId` is IGNORED for `CREDIT_REDUCTION` — the money goes to the customer on
  * the original payment's credit line, because letting a request name a different one
  * would move a debt between two people's accounts
- * (`RechargeFailureResolutionService.java:349-357`). It is required for
- * `KEEP_AS_ADVANCE`.
+ * (`RechargeFailureResolutionService.resolveResidual`). No mode requires it since
+ * `KEEP_AS_ADVANCE` was withdrawn.
+ *
+ * ⚠ `note` is REQUIRED when `mode` is `UPI` and carries the UPI transaction reference —
+ * a 422 `UPI_REQUIRES_REFERENCE` otherwise. It is also the first mode to read `note` at
+ * all: the server accepted the field and dropped it until 2026-10-21.
  */
 export interface RefundRechargeRequest {
   amount: number;

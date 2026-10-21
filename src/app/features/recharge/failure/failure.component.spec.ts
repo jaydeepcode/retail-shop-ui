@@ -226,17 +226,25 @@ describe('FailureComponent', () => {
     expect(failure.retryReady).toBe(true);
   });
 
-  it('needs a named customer before keeping a difference on account', () => {
-    load();
+  /**
+   * ⚠ THIS REPLACES "needs a named customer before keeping a difference on account".
+   * `KEEP_AS_ADVANCE` was the only mode that named one, and it was withdrawn on
+   * 2026-10-21 (log §16.2). `UPI` took its place and asks for something else: the
+   * transaction reference, which is the only trace from the `UPI_CLEARING` leg back to the
+   * actual transfer. The shape of the assertion is the same — a mode with an unmet
+   * requirement cannot be sent, so the 422 is never provoked.
+   */
+  it('needs the transaction reference before sending a difference back by UPI', () => {
+    load(item(), [line({ method: 'UPI', amount: 250, amountTendered: null, changeGiven: null })]);
     failure.openRetry();
     failure.retryAmount = 199;
-    failure.chooseDifferenceMode('KEEP_AS_ADVANCE');
+    failure.chooseDifferenceMode('UPI');
     expect(failure.retryReady).toBe(false);
 
-    failure.chooseCustomer({
-      customerId: 4821, name: 'Sunil Patil', contactNumber: '9823011111',
-      outstanding: 0, advanceHeld: 0, oldestDebtDays: null, warn: false
-    });
+    failure.retryNote = '   ';
+    expect(failure.retryReady).toBe(false);
+
+    failure.retryNote = 'UPI-OUT-4420';
     expect(failure.retryReady).toBe(true);
   });
 
@@ -244,17 +252,22 @@ describe('FailureComponent', () => {
    * ⚠ A customer left over from an earlier choice must not ride along on a CASH
    * settlement: the server would take it as naming an account, and the staff member would
    * believe cash went over the counter while the money sat on someone's name.
+   *
+   * No residual mode names a customer any more — `KEEP_AS_ADVANCE` was the one that did —
+   * so the leftover now comes from a CREDIT top-up, which still asks. The clearing rule is
+   * what is being asserted, and it is unchanged.
    */
   it('drops a chosen customer when the mode stops needing one', () => {
     load();
     failure.openRetry();
-    failure.retryAmount = 199;
-    failure.chooseDifferenceMode('KEEP_AS_ADVANCE');
+    failure.retryAmount = 349;
+    failure.chooseTopUpMethod('CREDIT');
     failure.chooseCustomer({
       customerId: 4821, name: 'Sunil Patil', contactNumber: '9823011111',
       outstanding: 0, advanceHeld: 0, oldestDebtDays: null, warn: false
     });
 
+    failure.retryAmount = 199;
     failure.chooseDifferenceMode('CASH');
     expect(failure.chosenCustomer).toBeNull();
 
@@ -279,8 +292,8 @@ describe('FailureComponent', () => {
     expect(fixture.nativeElement.querySelector('.refund-figure')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('#refund-amount')).toBeNull();
 
-    // Two modes are available on a cash sale, so nothing is pre-picked and the send is
-    // refused until one is chosen — which is the next test's subject.
+    // Cash is the only mode on a cash-only sale, so it is pre-picked — but choosing it
+    // explicitly is what this test is about sending, not what it is about offering.
     failure.chooseRefundMode('CASH');
     failure.submitRefund();
     const request = http.expectOne(`${base}/recharges/99051/refund`);
@@ -290,30 +303,68 @@ describe('FailureComponent', () => {
     request.flush({ recharge: item(), amount: 250, mode: 'CASH', credit: null });
   });
 
-  /** Cash was collected, so cash back is available — and it is the only pre-pick. */
-  it('offers cash back on a cash sale', () => {
+  /**
+   * ⚠ ONE MODE PER TENDER LINE, with no unconditional fallback. A cash-only sale offers
+   * cash back and nothing else, which is a narrowing: `KEEP_AS_ADVANCE` used to be offered
+   * here too, on every payment, and that is what let a UPI-only sale reach a one-way door
+   * (log §16.2).
+   */
+  it('offers cash back and only that on a cash sale', () => {
     load();
-    expect(failure.residualModes).toEqual(['CASH', 'KEEP_AS_ADVANCE']);
+    expect(failure.residualModes).toEqual(['CASH']);
     failure.openRefund();
-    expect(failure.refundMode).toBeNull();
+    expect(failure.refundMode).toBe('CASH');
   });
 
   /**
-   * ⚠ THE SHARP CASE. A UPI-only payment collected no cash, so there is none to hand
-   * back, and the only mode left needs a named customer. A disabled Cash button would be
-   * the wrong screen; saying so and pushing into a customer search is the right one.
+   * ⚠ THE SHARP CASE, AND THE ONE THIS CHANGE EXISTS FOR. A UPI-only payment collected no
+   * cash, so there is none to hand back. Until 2026-10-21 the only mode left was
+   * `KEEP_AS_ADVANCE`, which credited `ADV_RECHARGE` — an account nothing debits, with no
+   * `SettlementMethod.ADVANCE` to draw it down and invisible to the credit book. The money
+   * stopped being held and started being owed instead, forever. Observed live on
+   * 2026-10-19: ₹250 kept, `advanceHeld` 0.00, an empty statement.
+   *
+   * It now goes back down the rail it came in on, and the reference is what the screen
+   * asks for instead of a customer.
    */
-  it('says there is no cash to return on a UPI sale, and pre-picks the one mode left', () => {
+  it('sends a UPI sale back by UPI, and asks for the reference rather than a customer', () => {
     load(item(), [line({ method: 'UPI', amount: 250, amountTendered: null, changeGiven: null })]);
 
     expect(failure.noCashToReturn).toBe(true);
-    expect(failure.residualModes).toEqual(['KEEP_AS_ADVANCE']);
+    expect(failure.residualModes).toEqual(['UPI']);
+    expect(failure.needsCustomer('UPI')).toBe(false);
+    expect(failure.needsReference('UPI')).toBe(true);
 
     failure.openRefund();
     fixture.detectChanges();
-    expect(failure.refundMode).toBe('KEEP_AS_ADVANCE');
+    expect(failure.refundMode).toBe('UPI');
     expect(failure.refundReady).toBe(false);
     expect(fixture.nativeElement.textContent as string).toContain('No cash was collected');
+    expect(fixture.nativeElement.textContent as string).toContain('UPI transaction reference');
+
+    failure.refundNote = 'UPI-OUT-4421';
+    expect(failure.refundReady).toBe(true);
+
+    failure.submitRefund();
+    const request = http.expectOne(`${base}/recharges/99051/refund`);
+    expect(request.request.body).toEqual({
+      amount: 250, mode: 'UPI', customerId: null, note: 'UPI-OUT-4421'
+    });
+    request.flush({ recharge: item(), amount: 250, mode: 'UPI', credit: null });
+
+    expect(failure.outcomeSentence).toContain('sent back by UPI');
+  });
+
+  /** ⚠ A blank reference is refused before the request goes, not after a 422. */
+  it('will not send a UPI refund with a blank reference', () => {
+    load(item(), [line({ method: 'UPI', amount: 250, amountTendered: null, changeGiven: null })]);
+    failure.openRefund();
+
+    failure.refundNote = '   ';
+    expect(failure.refundReady).toBe(false);
+
+    failure.submitRefund();
+    http.expectNone(`${base}/recharges/99051/refund`);
   });
 
   /**
@@ -324,7 +375,7 @@ describe('FailureComponent', () => {
   it('names the credit line’s customer rather than asking who to credit', () => {
     load(item(), [line({ method: 'CREDIT', amount: 250, customerId: 4821, customerName: 'Sunil Patil' })]);
 
-    expect(failure.residualModes).toEqual(['KEEP_AS_ADVANCE', 'CREDIT_REDUCTION']);
+    expect(failure.residualModes).toEqual(['CREDIT_REDUCTION']);
     expect(failure.needsCustomer('CREDIT_REDUCTION')).toBe(false);
     expect(failure.modeNote('CREDIT_REDUCTION')).toContain('Sunil Patil');
 
@@ -339,20 +390,25 @@ describe('FailureComponent', () => {
   });
 
   /**
-   * ⚠ When the payment could not be read there ARE no tender rows to reason from, so the
-   * screen offers the one mode every payment has and says why — rather than offering all
-   * three and letting the staff member discover the refusals one at a time.
+   * ⚠ When the payment could not be read there ARE no tender rows to reason from — and
+   * since 2026-10-21 there is no always-available mode to fall back on either. Every mode
+   * now asserts something about the original payment, so the screen offers NOTHING and says
+   * why, rather than inventing a default that could send money out by a rail the sale never
+   * came in on.
    */
-  it('narrows to the always-available mode when the payment could not be read', () => {
+  it('offers no mode at all when the payment could not be read, and says why', () => {
     http.expectOne((r) => r.url === `${base}/recharges/failures`).flush(pageOf([item()]));
     http.expectOne(`${base}/transactions/73485`).error(new ProgressEvent('failed'));
     fixture.detectChanges();
 
     expect(failure.paymentUnread).toBe(true);
-    expect(failure.residualModes).toEqual(['KEEP_AS_ADVANCE']);
+    expect(failure.modesUnknown).toBe(true);
+    expect(failure.residualModes).toEqual([]);
 
     failure.openRefund();
     fixture.detectChanges();
+    expect(failure.refundMode).toBeNull();
+    expect(failure.refundReady).toBe(false);
     expect(fixture.nativeElement.textContent as string).toContain('could not be read');
   });
 
@@ -367,13 +423,13 @@ describe('FailureComponent', () => {
       {
         code: 'REFUND_MODE_NOT_AVAILABLE',
         message: 'CASH is not available here: no cash was collected on payment P-73485.',
-        details: { requested: 'CASH', available: ['KEEP_AS_ADVANCE'] }
+        details: { requested: 'CASH', available: ['UPI'] }
       },
       { status: 422, statusText: 'Unprocessable Entity' }
     );
     fixture.detectChanges();
 
-    expect(failure.residualModes).toEqual(['KEEP_AS_ADVANCE']);
+    expect(failure.residualModes).toEqual(['UPI']);
     // ⚠ And the mode the server just refused is cleared, not left selected.
     expect(failure.refundMode).toBeNull();
   });
@@ -528,22 +584,24 @@ describe('FailureComponent', () => {
     expect(failure.outcomeSentence).toBe('₹199.00 taken off Ravi More\'s tab.');
   });
 
-  /** And "their" when the response carries no name, which must not read as a name. */
+  /**
+   * And "their" when the response carries no name, which must not read as a name.
+   *
+   * ⚠ Only `CREDIT_REDUCTION` reaches `whose()` now. `KEEP_AS_ADVANCE` was the other
+   * caller and it was withdrawn (log §16.2); `CASH` and `UPI` name nobody, because the
+   * accounts they credit are `REQUIRES_PARTY = FALSE` and the walk-in stays anonymous.
+   */
   it('falls back to “their” when no customer came back', () => {
-    load();
+    load(item(), [line({ method: 'CREDIT', amount: 250, customerId: 3, customerName: 'Ravi More' })]);
     failure.openRefund();
-    failure.chooseRefundMode('KEEP_AS_ADVANCE');
-    failure.chooseCustomer({
-      customerId: 4821, name: 'Sunil Patil', contactNumber: '9823011111',
-      outstanding: 0, advanceHeld: 0, oldestDebtDays: null, warn: false
-    });
+    failure.chooseRefundMode('CREDIT_REDUCTION');
     failure.submitRefund();
 
     http.expectOne(`${base}/recharges/99051/refund`).flush({
-      recharge: item(), amount: 250, mode: 'KEEP_AS_ADVANCE', credit: null
+      recharge: item(), amount: 250, mode: 'CREDIT_REDUCTION', credit: null
     });
 
-    expect(failure.outcomeSentence).toBe('₹250.00 kept on their account.');
+    expect(failure.outcomeSentence).toBe('₹250.00 taken off their tab.');
   });
 
   /**

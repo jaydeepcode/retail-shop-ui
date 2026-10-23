@@ -1,6 +1,7 @@
 import { NgModule } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, Routes } from '@angular/router';
+import { PaymentModule } from '../shared/payment/payment.module';
 import { SectionChromeModule } from '../shared/section-chrome.module';
 import { SectionPlaceholderComponent } from '../shared/section-placeholder/section-placeholder.component';
 import { CounterComponent } from './counter/counter.component';
@@ -71,7 +72,7 @@ const routes: Routes = [
 ];
 
 @NgModule({
-  imports: [SectionChromeModule, FormsModule, RouterModule.forChild(routes)],
+  imports: [SectionChromeModule, PaymentModule, FormsModule, RouterModule.forChild(routes)],
   declarations: [
     RechargeShellComponent,
     CounterComponent,

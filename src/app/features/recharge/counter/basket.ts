@@ -1,10 +1,13 @@
-import {
-  CreditCustomerResponse,
-  RechargeLineRequest,
-  ServiceType,
-  SettlementLineRequest,
-  SettlementMethod
-} from '../model/recharge.models';
+import { RechargeLineRequest, ServiceType } from '../model/recharge.models';
+
+/**
+ * The basket half of the counter: what is being sold, and what it comes to.
+ *
+ * ⚠ The tender half — `PaymentLine`, `num`, `allocated`, `toSettlementLines` — moved to
+ * `shared/payment/tender.ts` when the payment block was extracted. The split is the one
+ * `next-session-s4.md` correction 2 makes on the server: how a customer paid is shared
+ * with the ticket screen, a recharge line and its surcharge are not.
+ */
 
 /**
  * One recharge in the basket.
@@ -42,45 +45,6 @@ export interface BasketLine {
 }
 
 /**
- * One row of the payment panel. Normally there is exactly one, and it is cash.
- *
- * ⚠ `amount` and `amountTendered` are typed `number | string` because that is the truth:
- * they are bound with `[(ngModel)]` to text inputs, which write back STRINGS. Typing them
- * as `number` was a lie that cost a real defect — the counter sent `"100"` and `"199"`,
- * the screen's own "left to allocate" read ₹0.00 because JavaScript coerces for `*`, and
- * the server then refused the basket with `providedTotal: 100199` from string
- * concatenation. Every read of these goes through `num()`.
- */
-export interface PaymentLine {
-  method: SettlementMethod;
-  amount: number | string | null;
-  /** CASH only — `SettlementMethod.carriesTender()`. */
-  amountTendered?: number | string | null;
-  /** UPI only. */
-  reference?: string;
-  /** CREDIT only, and required for it. */
-  customer?: CreditCustomerResponse;
-  note?: string;
-}
-
-/**
- * A figure typed into a text input, as a number.
- *
- * Blank, whitespace and anything unparseable are 0 — the panel refuses to settle until
- * the rows sum, so 0 is the safe reading of "nothing typed yet" rather than a guess.
- */
-export function num(value: number | string | null | undefined): number {
-  if (typeof value === 'number') {
-    return Number.isFinite(value) ? value : 0;
-  }
-  if (typeof value !== 'string' || !value.trim()) {
-    return 0;
-  }
-  const parsed = Number(value.trim());
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
-/**
  * What the basket comes to, for display before it is settled.
  *
  * This is NOT a re-derivation of a server-owned figure: until the settle call there is
@@ -94,12 +58,6 @@ export function basketTotal(lines: BasketLine[], defaultSurcharge: (line: Basket
     const surcharge = line.surcharge ?? defaultSurcharge(line);
     return sum + Math.round(line.amount * 100) + Math.round(surcharge * 100);
   }, 0);
-  return paise / 100;
-}
-
-/** What the payment lines currently account for. */
-export function allocated(lines: PaymentLine[]): number {
-  const paise = lines.reduce((sum, line) => sum + Math.round(num(line.amount) * 100), 0);
   return paise / 100;
 }
 
@@ -119,39 +77,6 @@ export function toRechargeLines(lines: BasketLine[]): RechargeLineRequest[] {
     // An explicit 0 is kept, which is how "the staff cleared it" is expressed.
     if (line.surcharge !== undefined) {
       request.surcharge = line.surcharge;
-    }
-    return request;
-  });
-}
-
-/**
- * The settlement lines.
- *
- * `amountTendered` goes only on cash, because that is the only method that has a tender
- * and change. A short payment is expressed as a smaller cash line plus a credit line —
- * the server never silently invents credit, it only verifies that the lines sum.
- */
-export function toSettlementLines(lines: PaymentLine[]): SettlementLineRequest[] {
-  return lines.map((line) => {
-    // ⚠ Coerced, never passed through: these come from text inputs as strings, and the
-    // contract says `amount` is a number.
-    const request: SettlementLineRequest = {
-      method: line.method,
-      amount: num(line.amount)
-    };
-    if (line.method === 'CASH' && line.amountTendered != null && line.amountTendered !== '') {
-      request.amountTendered = num(line.amountTendered);
-    }
-    if (line.method === 'UPI' && line.reference) {
-      request.reference = line.reference;
-    }
-    if (line.method === 'CREDIT') {
-      if (line.customer) {
-        request.customerId = line.customer.customerId;
-      }
-      if (line.note) {
-        request.note = line.note;
-      }
     }
     return request;
   });

@@ -13,15 +13,28 @@
  * (next-session-s3-screens.md, "what this session must not do").
  */
 
+import type {
+  SettlementLineRequest,
+  SettlementMethod
+} from '../../shared/payment/payment.models';
+
 /** `domain/ServiceType.java` — `ref_recharge_kind`'s two codes. */
 export type ServiceType = 'MOBILE' | 'TV';
 
 /**
- * `domain/SettlementMethod.java`. The wire name differs from the column for credit:
- * the API says `CREDIT`, `rc_txn_payment.LINE_TYPE` holds `CRDT`. The mapping is the
- * server's; a screen only ever sees the wire name.
+ * The tender half of this contract lives in `shared/payment/payment.models.ts`: a
+ * ticket settles with the same settlement lines against a different basket, so the
+ * lines are shared and the basket is not (`next-session-s4.md` correction 2).
+ *
+ * Re-exported here so every existing import of these five keeps working unchanged.
  */
-export type SettlementMethod = 'CASH' | 'UPI' | 'CREDIT';
+export type {
+  CreateCustomerRequest,
+  CreateCustomerRequestResult,
+  CreditCustomerResponse,
+  SettlementLineRequest,
+  SettlementMethod
+} from '../../shared/payment/payment.models';
 
 /**
  * `domain/RechargeStatus.java`, as it reaches the wire through
@@ -266,24 +279,6 @@ export interface TvConnectionResponse {
   contactNumber: string;
 }
 
-/** `response/CreditCustomerResponse.java`. */
-export interface CreditCustomerResponse {
-  customerId: number;
-  name: string;
-  contactNumber: string;
-  outstanding: number;
-  advanceHeld: number;
-  oldestDebtDays: number | null;
-  warn: boolean;
-}
-
-/** `response/CreateCustomerRequestResult.java` — the 409 body when the mobile is taken. */
-export interface CreateCustomerRequestResult {
-  existingCustomerId: number;
-  name: string;
-  contactNumber: string;
-}
-
 /** `response/PageResponse.java`. */
 export interface PageResponse<T> {
   content: T[];
@@ -505,16 +500,6 @@ export interface RechargeLineRequest {
   surcharge?: number;
 }
 
-/** `request/SettlementLineRequest.java`. `amountTendered` is meaningful on CASH alone. */
-export interface SettlementLineRequest {
-  method: SettlementMethod;
-  amount: number;
-  amountTendered?: number;
-  reference?: string;
-  customerId?: number;
-  note?: string;
-}
-
 /**
  * `request/SettleBasketRequest.java`. No total, no change, no status, no route — all
  * four are server-owned, so the client cannot disagree with one.
@@ -595,13 +580,6 @@ export interface RefundRechargeRequest {
   mode: ResidualMode;
   customerId?: number | null;
   note?: string | null;
-}
-
-/** `request/CreateCustomerRequest.java`. `lastName` is deliberately not required. */
-export interface CreateCustomerRequest {
-  firstName: string;
-  lastName?: string;
-  mobile: string;
 }
 
 /** The filter artboard 7 draws. Every field is optional; the server defaults the year. */

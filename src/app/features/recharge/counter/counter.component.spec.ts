@@ -2,6 +2,7 @@ import { HttpClientTestingModule, HttpTestingController } from '@angular/common/
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormsModule } from '@angular/forms';
 import { RouterTestingModule } from '@angular/router/testing';
+import { PaymentModule } from '../../shared/payment/payment.module';
 import { SectionChromeModule } from '../../shared/section-chrome.module';
 import { environment } from '../../../../environments/environment';
 import { CounterConfigResponse, TransactionResponse } from '../model/recharge.models';
@@ -118,7 +119,16 @@ describe('CounterComponent', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [HttpClientTestingModule, FormsModule, RouterTestingModule, SectionChromeModule],
+      imports: [
+        HttpClientTestingModule,
+        FormsModule,
+        RouterTestingModule,
+        SectionChromeModule,
+        // ⚠ The only change to this file. The payment block is a child component as
+        // of the S4 extraction, so the testing module has to know it — every one of
+        // the assertions below is untouched, and they are the guard on that move.
+        PaymentModule
+      ],
       declarations: [CounterComponent, NumberGroupsPipe]
     }).compileComponents();
 

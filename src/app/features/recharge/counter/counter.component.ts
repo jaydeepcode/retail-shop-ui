@@ -23,15 +23,8 @@ import {
   firstBadRechargeIndex,
   isRouteFixable
 } from '../services/recharge-error';
-import {
-  allocated,
-  basketTotal,
-  BasketLine,
-  num,
-  PaymentLine,
-  toRechargeLines,
-  toSettlementLines
-} from './basket';
+import { basketTotal, BasketLine, toRechargeLines } from './basket';
+import { PaymentLine, Tender } from '../../shared/payment/tender';
 
 /** Artboard 1 and 3 are this in `entry`; artboard 2 is this in `waiting`. */
 type CounterState = 'entry' | 'waiting';
@@ -91,12 +84,6 @@ export class CounterComponent implements OnInit, OnDestroy {
   /** Set from `fieldErrors`' index paths, so the cursor lands on the line the server named. */
   badLineIndex: number | null = null;
 
-  // -- the payment panel ---------------------------------------------------
-  payment: PaymentLine[] = [{ method: 'CASH', amount: null, amountTendered: null }];
-  customerQuery = '';
-  customerResults: CreditCustomerResponse[] = [];
-  customerSearching = false;
-
   settling = false;
   settleError = '';
 
@@ -127,10 +114,29 @@ export class CounterComponent implements OnInit, OnDestroy {
 
   private readonly numberProbe = new Subject<string>();
   private readonly connectionProbe = new Subject<string>();
-  private readonly customerProbe = new Subject<string>();
   private readonly subscriptions = new Subscription();
 
-  constructor(private api: RechargeApiService) {}
+  /**
+   * How the customer paid — the three buttons, the split rows, the credit panel and
+   * every rule about them (`shared/payment/tender.ts`).
+   *
+   * ⚠ `totalToMatch` is a function rather than a figure: the basket changes while the
+   * panel is on screen, and a copied number would be a second opinion about the total.
+   * `onEdit` is what used to be `toggleMethod`'s first line — changing the tender drops
+   * a settle error that no longer describes it.
+   */
+  readonly tender: Tender;
+
+  constructor(private api: RechargeApiService) {
+    this.tender = new Tender({
+      directory: api,
+      totalToMatch: () => this.provisionalTotal,
+      changeThreshold: () => this.config?.changeDisplayThreshold ?? 0,
+      onEdit: () => (this.settleError = ''),
+      errorSentence,
+      asExistingCustomer
+    });
+  }
 
   ngOnInit(): void {
     this.subscriptions.add(
@@ -182,25 +188,11 @@ export class CounterComponent implements OnInit, OnDestroy {
         })
     );
 
-    this.subscriptions.add(
-      this.customerProbe
-        .pipe(
-          debounceTime(250),
-          distinctUntilChanged(),
-          switchMap((value) => {
-            this.customerSearching = true;
-            return this.api.searchCustomers(value).pipe(catchError(() => of([])));
-          })
-        )
-        .subscribe((rows) => {
-          this.customerSearching = false;
-          this.customerResults = rows;
-        })
-    );
   }
 
   ngOnDestroy(): void {
     this.subscriptions.unsubscribe();
+    this.tender.destroy();
     this.clearCopyState();
   }
 
@@ -483,288 +475,155 @@ export class CounterComponent implements OnInit, OnDestroy {
   }
 
   // =========================================================================
-  // Payment
+  // Payment — delegated to `tender`
   // =========================================================================
 
-  isMethodOn(method: SettlementMethod): boolean {
-    return this.payment.some((line) => line.method === method);
+  /**
+   * ⚠ Everything down to `canTakePayment` is delegation, and deliberately so.
+   *
+   * The rules and the state live in `Tender` (`shared/payment/tender.ts`) because the
+   * ticket screen settles the same way; what is left here is the counter's own surface,
+   * kept because `counter.component.spec.ts` is the guard on this extraction and reaches
+   * through it 110 times. A pass-through that keeps 935 lines of assertions honest is
+   * worth more than the lines it costs.
+   *
+   * `takePayment` is NOT delegation: what settling means is the counter's — a basket of
+   * recharges, one idempotency key per basket, and a screen that then holds the sale.
+   */
+
+  get payment(): PaymentLine[] {
+    return this.tender.lines;
   }
 
-  /**
-   * One method is on by default and each further tap adds a row: splitting is 0.42% of
-   * baskets ever and none at all in FY2026-27 (§14.7), so it is opt-in rather than drawn.
-   */
+  get customerQuery(): string {
+    return this.tender.customerQuery;
+  }
+
+  set customerQuery(value: string) {
+    this.tender.customerQuery = value;
+  }
+
+  get customerResults(): CreditCustomerResponse[] {
+    return this.tender.customerResults;
+  }
+
+  get customerSearching(): boolean {
+    return this.tender.customerSearching;
+  }
+
+  isMethodOn(method: SettlementMethod): boolean {
+    return this.tender.isMethodOn(method);
+  }
+
   toggleMethod(method: SettlementMethod): void {
-    this.settleError = '';
-    const at = this.payment.findIndex((line) => line.method === method);
-    if (at >= 0) {
-      // The last row cannot be dropped — a payment needs at least one line.
-      if (this.payment.length > 1) {
-        this.payment.splice(at, 1);
-      }
-      return;
-    }
-    if (this.payment.length >= 5) {
-      this.settleError = 'A payment takes at most 5 lines.';
-      return;
-    }
-    this.payment.push(
-      method === 'CASH' ? { method, amount: null, amountTendered: null } : { method, amount: null }
-    );
+    this.tender.toggleMethod(method);
   }
 
   line(method: SettlementMethod): PaymentLine | undefined {
-    return this.payment.find((l) => l.method === method);
+    return this.tender.line(method);
   }
 
-  /** The single-method case: the one line covers the whole basket, so it is not typed. */
   get isSingleMethod(): boolean {
-    return this.payment.length === 1;
+    return this.tender.isSingleMethod;
   }
 
-  /** What this row settles in cash: the typed share, or the whole basket on its own. */
   cashLineOf(row: PaymentLine): number {
-    return this.isSingleMethod ? this.provisionalTotal : num(row.amount);
+    return this.tender.cashLineOf(row);
   }
 
-  /**
-   * What goes back to the customer, shown on the row before the sale commits.
-   *
-   * Artboard 3 draws this as "back ₹200", and it is what makes the two cash boxes
-   * readable — the share of the bill, what was handed over, and the difference.
-   *
-   * ⚠ §14.5's threshold still applies: a rupee is not change, nobody hands it over, and
-   * showing it the same way as ₹201 is what made it noise. The threshold is read from
-   * `config.changeDisplayThreshold` rather than hard-coded, which is why config carries
-   * it. After the sale the screen reads the server's `changeDisplayed` instead and never
-   * this — the authoritative flag is the server's, so two clients cannot disagree.
-   */
   provisionalChange(row: PaymentLine): number | null {
-    if (row.method !== 'CASH' || row.amountTendered == null || row.amountTendered === '') {
-      return null;
-    }
-    const paise = Math.round(num(row.amountTendered) * 100) - Math.round(this.cashLineOf(row) * 100);
-    if (paise <= 0) {
-      return null;
-    }
-    const threshold = Math.round((this.config?.changeDisplayThreshold ?? 0) * 100);
-    return paise >= threshold ? paise / 100 : null;
+    return this.tender.provisionalChange(row);
   }
 
-  /**
-   * Whether less cash was taken than the cash line claims.
-   *
-   * The server refuses this with `INVALID_TENDER`; saying so on the row means the staff
-   * fix it before pressing F12 rather than after being refused.
-   */
   tenderIsShort(row: PaymentLine): boolean {
-    if (row.method !== 'CASH' || row.amountTendered == null || row.amountTendered === '') {
-      return false;
-    }
-    return Math.round(num(row.amountTendered) * 100) < Math.round(this.cashLineOf(row) * 100);
+    return this.tender.tenderIsShort(row);
   }
 
   get allocatedTotal(): number {
-    return this.isSingleMethod ? this.provisionalTotal : allocated(this.payment);
+    return this.tender.allocatedTotal;
   }
 
   get leftToAllocate(): number {
-    return Math.round((this.provisionalTotal - this.allocatedTotal) * 100) / 100;
+    return this.tender.leftToAllocate;
   }
 
   onCustomerQuery(value: string): void {
-    this.customerQuery = value;
-    if (value.trim().length >= 2) {
-      this.customerProbe.next(value.trim());
-    } else {
-      this.customerResults = [];
-    }
+    this.tender.onCustomerQuery(value);
   }
 
   chooseCustomer(customer: CreditCustomerResponse): void {
-    const credit = this.line('CREDIT');
-    if (credit) {
-      credit.customer = customer;
-    }
-    this.customerResults = [];
-    this.customerQuery = '';
-    this.cancelAddingCustomer();
+    this.tender.chooseCustomer(customer);
   }
 
   clearCustomer(): void {
-    const credit = this.line('CREDIT');
-    if (credit) {
-      credit.customer = undefined;
-    }
+    this.tender.clearCustomer();
   }
 
-  /** What this sale will put on the tab: the credit line's share of the basket. */
   get creditAmount(): number {
-    const credit = this.line('CREDIT');
-    if (!credit) {
-      return 0;
-    }
-    return this.isSingleMethod ? this.provisionalTotal : num(credit.amount);
+    return this.tender.creditAmount;
   }
 
-  /**
-   * Artboard 3's third figure — what they will owe once this sale commits.
-   *
-   * Provisional, exactly like the basket total: before the settle call there is no server
-   * figure to disagree with, and the response's `outstandingAfter` replaces it the moment
-   * there is one. It follows §14.8's mirror rule — a charge consumes any advance first and
-   * only then becomes debt — so it agrees with what the server is about to do rather than
-   * inventing a second opinion.
-   *
-   * This is the figure that makes the warning actionable: "already owes ₹340" does not
-   * tell the staff whether to extend more, and "will owe ₹389" does.
-   */
   get willOweAfterThis(): number | null {
-    const customer = this.line('CREDIT')?.customer;
-    if (!customer) {
-      return null;
-    }
-    const paise =
-      Math.round(customer.outstanding * 100) +
-      Math.round(this.creditAmount * 100) -
-      Math.round(customer.advanceHeld * 100);
-    return Math.max(0, paise) / 100;
+    return this.tender.willOweAfterThis;
   }
 
-  /** What is left of their advance once this sale has eaten into it. */
   get advanceLeftAfterThis(): number {
-    const customer = this.line('CREDIT')?.customer;
-    if (!customer) {
-      return 0;
-    }
-    const paise = Math.round(customer.advanceHeld * 100) - Math.round(this.creditAmount * 100);
-    return Math.max(0, paise) / 100;
+    return this.tender.advanceLeftAfterThis;
   }
 
   // -- adding a customer who is not in the book yet ------------------------
 
-  addingCustomer = false;
-  newCustomer: CreateCustomerRequest = { firstName: '', lastName: '', mobile: '' };
-  creatingCustomer = false;
-  createCustomerError = '';
-  /** A 409 names whoever already holds that mobile, so they can be used instead. */
-  existingCustomer: CreateCustomerRequestResult | null = null;
+  get addingCustomer(): boolean {
+    return this.tender.addingCustomer;
+  }
 
-  /**
-   * A walk-in taking credit has to be named, and 506 customers is not everyone. Endpoint
-   * #5 exists for exactly this, and without a caller a new customer could only be added
-   * by someone editing the database.
-   */
+  get newCustomer(): CreateCustomerRequest {
+    return this.tender.newCustomer;
+  }
+
+  set newCustomer(value: CreateCustomerRequest) {
+    this.tender.newCustomer = value;
+  }
+
+  get creatingCustomer(): boolean {
+    return this.tender.creatingCustomer;
+  }
+
+  get createCustomerError(): string {
+    return this.tender.createCustomerError;
+  }
+
+  get existingCustomer(): CreateCustomerRequestResult | null {
+    return this.tender.existingCustomer;
+  }
+
   startAddingCustomer(): void {
-    this.addingCustomer = true;
-    this.createCustomerError = '';
-    this.existingCustomer = null;
-    // The search box usually already holds what was typed; a 10-digit string is a mobile.
-    const typed = this.customerQuery.trim();
-    this.newCustomer = /^[0-9]{10}$/.test(typed.replace(/\s/g, ''))
-      ? { firstName: '', lastName: '', mobile: typed.replace(/\s/g, '') }
-      : { firstName: typed, lastName: '', mobile: '' };
+    this.tender.startAddingCustomer();
   }
 
   cancelAddingCustomer(): void {
-    this.addingCustomer = false;
-    this.creatingCustomer = false;
-    this.createCustomerError = '';
-    this.existingCustomer = null;
-    this.newCustomer = { firstName: '', lastName: '', mobile: '' };
+    this.tender.cancelAddingCustomer();
   }
 
   get canCreateCustomer(): boolean {
-    return (
-      !this.creatingCustomer &&
-      !!this.newCustomer.firstName.trim() &&
-      /^[0-9]{10}$/.test(this.newCustomer.mobile.trim())
-    );
+    return this.tender.canCreateCustomer;
   }
 
   createCustomer(): void {
-    if (!this.canCreateCustomer) {
-      return;
-    }
-    this.creatingCustomer = true;
-    this.createCustomerError = '';
-    this.existingCustomer = null;
-
-    const request: CreateCustomerRequest = {
-      firstName: this.newCustomer.firstName.trim(),
-      mobile: this.newCustomer.mobile.trim()
-    };
-    // Not @NotBlank on the server: 147 of 506 rows have no last name, and a walk-in may
-    // give only one name.
-    const lastName = (this.newCustomer.lastName ?? '').trim();
-    if (lastName) {
-      request.lastName = lastName;
-    }
-
-    this.api.createCustomer(request).subscribe({
-      next: (created) => {
-        this.creatingCustomer = false;
-        this.chooseCustomer(created);
-      },
-      error: (error) => {
-        this.creatingCustomer = false;
-        // ⚠ A duplicate mobile answers 409 carrying `CreateCustomerRequestResult` — the
-        // existing customer, not an error body. Offering them beats making the staff
-        // search again for someone the server has already found.
-        const duplicate = asExistingCustomer(error);
-        if (duplicate) {
-          this.existingCustomer = duplicate;
-          return;
-        }
-        this.createCustomerError = errorSentence(error);
-      }
-    });
+    this.tender.createCustomer();
   }
 
-  /**
-   * Use the customer the 409 named. Their figures are not in that body, so they are read
-   * back by search rather than assumed to be zero — a duplicate is often someone who
-   * already owes.
-   */
   useExistingCustomer(): void {
-    const existing = this.existingCustomer;
-    if (!existing) {
-      return;
-    }
-    this.creatingCustomer = true;
-    this.api.searchCustomers(existing.contactNumber, 5).subscribe({
-      next: (rows) => {
-        this.creatingCustomer = false;
-        const match = rows.find((row) => row.customerId === existing.existingCustomerId);
-        if (match) {
-          this.chooseCustomer(match);
-          return;
-        }
-        this.createCustomerError = 'That customer could not be read back. Search for them by name.';
-      },
-      error: (error) => {
-        this.creatingCustomer = false;
-        this.createCustomerError = errorSentence(error);
-      }
-    });
+    this.tender.useExistingCustomer();
   }
+
+  // -- settling, which is the counter's own --------------------------------
 
   get canTakePayment(): boolean {
     if (!this.basket.length || this.settling) {
       return false;
     }
-    const credit = this.line('CREDIT');
-    if (credit && !credit.customer) {
-      return false;
-    }
-    // A tender below its own cash line is INVALID_TENDER server-side, so it is caught
-    // here rather than after the refusal.
-    if (this.payment.some((line) => this.tenderIsShort(line))) {
-      return false;
-    }
-    // The lines have to add up before the button works, which is how a short payment
-    // becomes credit rather than a silent write-off.
-    return this.isSingleMethod ? true : Math.abs(this.leftToAllocate) < 0.005;
+    return this.tender.isReady;
   }
 
   takePayment(): void {
@@ -775,23 +634,12 @@ export class CounterComponent implements OnInit, OnDestroy {
     this.settleError = '';
     this.badLineIndex = null;
 
-    // On a single method the one line carries the whole basket, so the amount is filled
-    // in rather than typed. Cash with no tender typed means exact money.
-    const lines: PaymentLine[] = this.payment.map((line) => ({
-      ...line,
-      amount: this.isSingleMethod ? this.provisionalTotal : num(line.amount),
-      amountTendered:
-        line.method === 'CASH'
-          ? line.amountTendered != null && line.amountTendered !== ''
-            ? num(line.amountTendered)
-            // Nothing typed means they gave the exact money.
-            : this.isSingleMethod ? this.provisionalTotal : num(line.amount)
-          : undefined
-    }));
-
     this.api
       .settle(
-        { recharges: toRechargeLines(this.basket), settlementLines: toSettlementLines(lines) },
+        {
+          recharges: toRechargeLines(this.basket),
+          settlementLines: this.tender.settlementLines()
+        },
         this.idempotencyKey
       )
       .subscribe({
@@ -992,7 +840,7 @@ export class CounterComponent implements OnInit, OnDestroy {
     this.answered = [];
     this.answeringIndex = 0;
     this.basket = [];
-    this.payment = [{ method: 'CASH', amount: null, amountTendered: null }];
+    this.tender.reset();
     this.idempotencyKey = newIdempotencyKey();
     this.numberText = '';
     this.amountText = '';

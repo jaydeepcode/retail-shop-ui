@@ -600,83 +600,12 @@ select {
   font-weight: 600;
 }
 
-// ---------------------------------------------------------------- payment
+// ------------------------------------------- payment: what is left of it here
 
-.methods {
-  display: flex;
-  gap: 8px;
-}
-
-.method {
-  flex-grow: 1;
-  height: 42px;
-  border-radius: 4px;
-  border: 1px solid t.$border;
-  background: t.$surface;
-  color: t.$ink;
-  font-family: inherit;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-
-  &.is-on {
-    border: 2px solid t.$primary;
-    background: t.$primary-tint;
-    color: t.$primary-dark;
-    font-weight: 600;
-  }
-}
-
-.methods-note {
-  margin: -6px 0 0;
-  font-size: 11px;
-  color: t.$ink-muted;
-}
-
-.pay-single,
-.pay-rows {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.pay-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.pay-row-label {
-  width: 54px;
-  flex-shrink: 0;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.pay-row-sub {
-  font-size: 11px;
-  color: t.$ink-muted;
-  // The row is tight; without this "of the bill" wraps on the cash row but not the
-  // credit one, so the two rows stop lining up.
-  white-space: nowrap;
-}
-
-.pay-row .pay-input {
-  width: 92px;
-  text-align: right;
-}
-
-.pay-row .pay-ref {
-  flex-grow: 1;
-  width: auto;
-  text-align: left;
-  font-size: 13px;
-}
-
-.pay-single .pay-input {
-  max-width: 220px;
-  text-align: right;
-}
+// The settlement block moved to shared/payment/payment-panel.component.scss. What
+// stays is what the counter still draws: .pay-foot and .pay-input serve the waiting
+// state too, and .pay-after and .btn-take are projected INTO the panel, so they are
+// styled from here — projected content keeps the encapsulation of whoever wrote it.
 
 .pay-foot {
   margin-top: auto;
@@ -685,91 +614,11 @@ select {
   gap: 12px;
 }
 
-.left-to-allocate {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin: 0;
-  font-size: 13px;
-  color: t.$ink-muted;
-
-  .mono {
-    font-weight: 600;
-    color: #8a4b00;
-  }
-
-  .mono.is-clear {
-    color: #19653a;
-  }
-}
-
 .pay-after {
   margin: 0;
   font-size: 11px;
   color: t.$ink-muted;
   text-align: center;
-}
-
-// ---------------------------------------------------------------- credit
-
-.credit-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 9px;
-  padding: 12px 14px;
-  border: 1px solid t.$border;
-  border-radius: 5px;
-  background: t.$surface-sunk;
-
-  &.is-warn {
-    border-color: #e3a857;
-    background: #fff3df;
-  }
-}
-
-.credit-head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.credit-name {
-  font-size: 14px;
-  font-weight: 600;
-  flex-grow: 1;
-}
-
-.credit-phone {
-  font-size: 12px;
-  color: t.$ink-muted;
-}
-
-.credit-figures {
-  display: flex;
-  gap: 20px;
-  margin: 0;
-  padding-top: 8px;
-  border-top: 1px solid rgba(0, 0, 0, 0.08);
-  flex-wrap: wrap;
-
-  dt {
-    font-size: 11px;
-    font-weight: 400;
-    color: t.$ink-muted;
-  }
-
-  dd {
-    margin: 0;
-    font-size: 17px;
-    font-weight: 600;
-  }
-}
-
-.credit-warn {
-  margin: 0;
-  font-size: 12px;
-  color: #6e3c00;
 }
 
 // ---------------------------------------------------------------- waiting
@@ -902,70 +751,6 @@ select {
   margin: 2px 0 0;
   font-size: 12px;
   color: t.$ink-muted;
-}
-
-// ---------------------------------------------------------------- credit, continued
-
-.credit-after dd {
-  color: t.$ink;
-}
-
-.credit-advance-note {
-  margin: 0;
-  font-size: 12px;
-  color: #19653a;
-}
-
-.new-customer {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 12px 13px;
-  border: 1px dashed t.$border;
-  border-radius: 4px;
-  background: t.$surface;
-}
-
-.new-customer .field > label {
-  font-size: 11px;
-}
-
-.new-customer-dupe {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border: 1px solid #e3a857;
-  border-radius: 4px;
-  background: #fff3df;
-  flex-wrap: wrap;
-
-  p {
-    margin: 0;
-    flex-grow: 1;
-    font-size: 12px;
-    color: #6e3c00;
-  }
-}
-
-.new-customer-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.pay-change {
-  font-size: 13px;
-  font-weight: 600;
-  color: #19653a;
-  white-space: nowrap;
-}
-
-.pay-short {
-  font-size: 12px;
-  font-weight: 600;
-  color: #8a1c16;
-  white-space: nowrap;
 }
 
 .held-number-row {

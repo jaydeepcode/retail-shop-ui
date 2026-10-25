@@ -1,0 +1,169 @@
+<!-- Artboard 11. One screen, one transaction: there is no waiting state because the
+     ticket is issued at the counter and there is nothing to come back and confirm. -->
+<div class="booking">
+
+  <!-- ===================== the booking ===================== -->
+  <div class="booking-entry">
+    <section class="card entry-card" aria-labelledby="booking-heading">
+      <h2 id="booking-heading" class="card-title">New booking</h2>
+
+      <!-- ---------- mode ---------- -->
+      <div class="field">
+        <span class="field-label" id="mode-label">Mode</span>
+        <div class="service-row" role="group" aria-labelledby="mode-label">
+          <button *ngFor="let m of modes" type="button" class="service"
+                  [class.is-on]="mode === m.code" [attr.aria-pressed]="mode === m.code"
+                  (click)="chooseMode(m.code)">{{ m.label }}</button>
+        </div>
+        <p class="field-note">
+          Rail and bus are one business with one margin — the mode is recorded, not priced.
+        </p>
+      </div>
+
+      <!-- ---------- passengers ---------- -->
+      <div class="field">
+        <label for="booking-passengers">Passengers</label>
+        <input id="booking-passengers" class="mid-input" type="text" inputmode="numeric"
+               autocomplete="off" [value]="passengersText"
+               (input)="onPassengersChange($any($event.target).value)">
+        <p class="field-note">
+          Typed, never divided out of the commission — ₹60 is today's price, not a law.
+        </p>
+      </div>
+
+      <hr class="rule">
+
+      <!-- ---------- who paid the platform: the flow control ---------- -->
+      <!-- ⚠ ONE CONTROL, NOT TWO. Choosing who paid the platform IS choosing the flow:
+           "customer paid directly" clears the fare, which is what makes FARE_AMOUNT
+           IS NULL true. A separate flow toggle could contradict the amounts. -->
+      <div class="field">
+        <span class="field-label" id="funding-label">Who paid the platform?</span>
+        <div class="funding" role="group" aria-labelledby="funding-label">
+          <button type="button" class="funding-direct"
+                  [class.is-on]="customerPaidDirectly"
+                  [attr.aria-pressed]="customerPaidDirectly"
+                  (click)="customerPaid()">
+            Customer paid directly<span *ngIf="customerPaidDirectly" aria-hidden="true"> ✓</span>
+          </button>
+          <div class="funding-accounts">
+            <button *ngFor="let account of fundingAccounts" type="button" class="funding-account"
+                    [class.is-on]="fundingAccountCode === account.code"
+                    [attr.aria-pressed]="fundingAccountCode === account.code"
+                    (click)="chooseFunding(account.code)">
+              {{ account.label }}<span *ngIf="fundingAccountCode === account.code"
+                                       aria-hidden="true"> ✓</span>
+            </button>
+          </div>
+        </div>
+        <p class="field-note" *ngIf="customerPaidDirectly">
+          The shop never touched the fare, so only the commission is recorded.
+        </p>
+        <p class="field-note" *ngIf="!customerPaidDirectly && !shopFunded">
+          Pick the account the fare was paid from, or say the customer paid directly.
+        </p>
+      </div>
+
+      <!-- ---------- fare: present only when the shop funded it ---------- -->
+      <!-- Absent from the DOM rather than disabled, so there is no hidden field holding
+           a fare that would be sent and refused. -->
+      <div *ngIf="shopFunded" class="field">
+        <label for="booking-fare">Fare</label>
+        <div class="amount-controls">
+          <span class="rupee" aria-hidden="true">₹</span>
+          <input id="booking-fare" class="amount-input" type="text" inputmode="numeric"
+                 autocomplete="off" [(ngModel)]="fareText">
+        </div>
+        <p class="field-note">What the platform charged, paid from {{ labelFor(fundingAccountCode) }}.</p>
+      </div>
+
+      <!-- ---------- commission ---------- -->
+      <div class="field">
+        <label for="booking-commission">Our commission</label>
+        <div class="amount-controls">
+          <span class="rupee" aria-hidden="true">₹</span>
+          <input id="booking-commission" class="amount-input" type="text" inputmode="numeric"
+                 autocomplete="off" [value]="commissionText"
+                 (input)="onCommissionChange($any($event.target).value)">
+          <span class="field-note commission-note">
+            defaults to ₹60 × {{ passengers }}
+          </span>
+        </div>
+      </div>
+
+      <!-- ---------- note ---------- -->
+      <div class="field">
+        <label for="booking-note">Note <span class="optional">— optional</span></label>
+        <input id="booking-note" class="pay-input" type="text" autocomplete="off"
+               placeholder="train or bus, route, a PNR if you want one"
+               [(ngModel)]="note" maxlength="255">
+      </div>
+    </section>
+  </div>
+
+  <!-- ===================== what it comes to, and how it was paid ===================== -->
+  <div class="booking-side">
+
+    <section class="card" aria-labelledby="total-heading">
+      <h2 id="total-heading" class="card-title">Customer pays</h2>
+      <p class="total-line">
+        <span class="mono total-figure">₹{{ totalDue | number: '1.2-2' }}</span>
+      </p>
+      <dl class="total-breakdown" *ngIf="shopFunded">
+        <div>
+          <dt>Fare</dt>
+          <dd class="mono">₹{{ fareAmount | number: '1.2-2' }}</dd>
+        </div>
+        <div>
+          <dt>Our commission</dt>
+          <dd class="mono">₹{{ commissionAmount | number: '1.2-2' }}</dd>
+        </div>
+      </dl>
+      <p class="field-note" *ngIf="!shopFunded && customerPaidDirectly">
+        Commission only — the fare never passed through the shop.
+      </p>
+    </section>
+
+    <!-- The recharge counter's component, unchanged. Only the footer is this screen's. -->
+    <app-payment-panel [tender]="tender" idPrefix="booking" (submitted)="takeBooking()">
+      <p *ngIf="bookError" class="entry-error" role="alert">{{ bookError }}</p>
+
+      <button type="button" class="btn btn-primary btn-take" [disabled]="!canBook"
+              (click)="takeBooking()">
+        {{ booking ? 'Booking…' : 'Take payment' }}
+      </button>
+      <p class="pay-after">
+        No receipt. The booking and its ledger entry are written together.
+      </p>
+    </app-payment-panel>
+
+    <!-- ---------- the confirmation ---------- -->
+    <!-- Held rather than flashed: the staff member needs to be able to read back what
+         was booked while the customer is still at the counter. -->
+    <section *ngIf="booked as done" class="card card-done" aria-labelledby="done-heading">
+      <h2 id="done-heading" class="card-title">Booked</h2>
+      <p class="done-line">
+        <b>{{ done.bookingMode === 'RAIL' ? 'Railway' : 'Bus' }}</b>,
+        {{ done.passengerCount }} passenger<span *ngIf="done.passengerCount !== 1">s</span>,
+        <span class="mono">₹{{ done.totalDue | number: '1.2-2' }}</span>
+      </p>
+      <p class="field-note" *ngIf="done.shopFunded">
+        Fare ₹{{ done.fareAmount | number: '1.2-2' }} from {{ labelFor(done.fundingAccountCode) }},
+        commission ₹{{ done.commissionAmount | number: '1.2-2' }}.
+      </p>
+      <p class="field-note" *ngIf="!done.shopFunded">
+        Commission ₹{{ done.commissionAmount | number: '1.2-2' }} — the customer paid the
+        platform themselves.
+      </p>
+      <p class="field-note mono">Booking B-{{ done.bookingId }} · voucher {{ done.voucherId }}</p>
+      <ng-container *ngFor="let line of done.settlementLines">
+        <p *ngIf="line.changeDisplayed" class="done-change">
+          Hand back <b class="mono">₹{{ line.changeGiven | number: '1.2-2' }}</b>
+        </p>
+      </ng-container>
+      <p class="field-aside">
+        <button type="button" class="link" (click)="dismissConfirmation()">Clear</button>
+      </p>
+    </section>
+  </div>
+</div>

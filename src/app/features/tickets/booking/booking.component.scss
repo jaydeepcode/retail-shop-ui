@@ -1,0 +1,345 @@
+@use '../../shared/tokens' as t;
+
+// Artboard 11 at 1440x900. The two-column split follows the recharge counter's:
+// entry on the left, what it comes to and how it was paid on the right.
+//
+// The primitives below are re-declared rather than shared, which is what every screen
+// in this app does — worklist.component.scss and failure.component.scss each carry
+// their own. .btn-take, .btn-primary and .pay-after are here because they are
+// PROJECTED INTO app-payment-panel, and projected content keeps the encapsulation of
+// whoever wrote it.
+
+:host {
+  display: block;
+  font-family: t.$sans;
+  color: t.$ink;
+}
+
+.booking {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.booking-entry {
+  flex: 1 1 620px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.booking-side {
+  flex: 0 1 460px;
+  min-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+// ---------------------------------------------------------------- the card
+
+.card {
+  background: t.$surface;
+  border: 1px solid t.$border;
+  border-radius: 6px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.entry-card {
+  padding: 22px 24px;
+  gap: 20px;
+}
+
+.card-title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: t.$ink-muted;
+}
+
+.card-done {
+  border-color: #9ccbb0;
+  background: #f4fbf6;
+}
+
+.rule {
+  height: 1px;
+  margin: 0;
+  border: 0;
+  background: t.$border-light;
+}
+
+.mono {
+  font-family: t.$mono;
+}
+
+// ---------------------------------------------------------------- fields
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+}
+
+.field > label,
+.field-label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: t.$ink-muted;
+}
+
+.optional {
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: t.$ink-faint;
+}
+
+.field-note,
+.field-aside {
+  margin: 0;
+  font-size: 11px;
+  color: t.$ink-muted;
+}
+
+input {
+  height: 44px;
+  box-sizing: border-box;
+  padding: 0 12px;
+  border: 1px solid t.$border;
+  border-radius: 4px;
+  font-size: 16px;
+  font-weight: 600;
+  min-width: 0;
+}
+
+.mid-input {
+  max-width: 120px;
+}
+
+.pay-input {
+  width: 100%;
+  max-width: 560px;
+}
+
+.amount-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.rupee {
+  font-family: t.$mono;
+  font-size: 26px;
+  font-weight: 500;
+  color: t.$ink-muted;
+}
+
+.amount-input {
+  width: 170px;
+  font-family: t.$mono;
+  font-size: 20px;
+  text-align: right;
+}
+
+.commission-note {
+  white-space: nowrap;
+}
+
+.link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: t.$primary;
+  text-decoration: underline;
+  cursor: pointer;
+
+  &:hover { color: t.$primary-dark; }
+}
+
+.entry-error {
+  margin: 0;
+  padding: 10px 13px;
+  border-radius: 4px;
+  border: 1px solid #e0b4b0;
+  background: #fdf6f5;
+  font-size: 13px;
+  color: #8a1c16;
+}
+
+// ---------------------------------------------------------------- mode
+
+.service-row {
+  display: flex;
+  gap: 10px;
+}
+
+.service {
+  height: 44px;
+  min-width: 96px;
+  padding: 0 18px;
+  border-radius: 4px;
+  border: 1px solid t.$border;
+  background: t.$surface;
+  color: t.$ink;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+
+  &.is-on {
+    border: 2px solid t.$primary;
+    background: t.$primary-tint;
+    color: t.$primary-dark;
+    font-weight: 600;
+  }
+}
+
+// ---------------------------------------------------------------- who paid
+
+// ⚠ ONE CONTROL, DRAWN AS ONE. "Customer paid directly" sits in the same group as the
+// four accounts and is styled as a peer of them, because it IS one of the answers to
+// "who paid the platform?" — not a mode switch above the question.
+.funding {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.funding-direct,
+.funding-account {
+  border-radius: 4px;
+  border: 1px solid t.$border;
+  background: t.$surface;
+  color: t.$ink;
+  font-family: inherit;
+  cursor: pointer;
+
+  &.is-on {
+    border: 2px solid t.$primary;
+    background: t.$primary-tint;
+    color: t.$primary-dark;
+    font-weight: 600;
+  }
+}
+
+.funding-direct {
+  height: 44px;
+  padding: 0 16px;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+}
+
+.funding-accounts {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.funding-account {
+  flex: 1 1 0;
+  min-width: 104px;
+  height: 42px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+// ---------------------------------------------------------------- the total
+
+.total-line {
+  margin: 0;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.total-figure {
+  font-size: 32px;
+  font-weight: 600;
+}
+
+.total-breakdown {
+  display: flex;
+  gap: 20px;
+  margin: 0;
+  padding-top: 8px;
+  border-top: 1px solid t.$border-light;
+  flex-wrap: wrap;
+
+  dt {
+    font-size: 11px;
+    font-weight: 400;
+    color: t.$ink-muted;
+  }
+
+  dd {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 600;
+  }
+}
+
+// ---------------------------------------------------------------- projected footer
+
+.btn {
+  border-radius: 4px;
+  border: 1px solid transparent;
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
+
+.btn-primary {
+  background: t.$primary;
+  color: #ffffff;
+}
+
+.btn-take {
+  height: 52px;
+  font-size: 16px;
+}
+
+.pay-after {
+  margin: 0;
+  font-size: 11px;
+  color: t.$ink-muted;
+  text-align: center;
+}
+
+// ---------------------------------------------------------------- the confirmation
+
+.done-line {
+  margin: 0;
+  font-size: 15px;
+}
+
+.done-change {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 4px;
+  background: #e6f4ea;
+  font-size: 14px;
+  color: #19653a;
+}

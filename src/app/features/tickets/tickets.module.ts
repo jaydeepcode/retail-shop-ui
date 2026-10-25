@@ -1,49 +1,34 @@
 import { NgModule } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { RouterModule, Routes } from '@angular/router';
+import { PaymentModule } from '../shared/payment/payment.module';
 import { SectionChromeModule } from '../shared/section-chrome.module';
-import { SectionPlaceholderComponent } from '../shared/section-placeholder/section-placeholder.component';
+import { BookingComponent } from './booking/booking.component';
 import { TicketsShellComponent } from './tickets-shell/tickets-shell.component';
+import { TodayComponent } from './today/today.component';
 
-/** Artboard 11. Two tabs, not the one screen the planning note expected. */
+/**
+ * Artboard 11. Two tabs, not the one screen the planning note expected.
+ *
+ * ⚠ `PaymentModule` is imported rather than the settlement block being rebuilt. It is
+ * the recharge counter's own component, extracted in this slice's first commit for
+ * exactly this — "the same three buttons would have been built twice and behaved
+ * differently" is the failure `design-ticket-booking.md` §4 names.
+ */
 const routes: Routes = [
   {
     path: '',
     component: TicketsShellComponent,
     children: [
       { path: '', redirectTo: 'new', pathMatch: 'full' },
-      {
-        path: 'new',
-        component: SectionPlaceholderComponent,
-        data: {
-          copy: {
-            title: 'New booking',
-            note: 'Artboard 11. Rail and bus are one business with one margin; the choice exists only because the old records cannot tell them apart.',
-            slated: [
-              'Rail or bus, and a typed passenger count — never divided out of the commission',
-              'Who paid the platform, which is the one switch that hides the fare row',
-              'Fare and our commission as separate fields',
-              'The payment panel, the same component as the recharge counter'
-            ]
-          }
-        }
-      },
-      {
-        path: 'today',
-        component: SectionPlaceholderComponent,
-        data: {
-          copy: {
-            title: 'Today',
-            note: 'The day’s bookings. The ticket till shares a drawer with recharge, so it is counted in the same evening close.',
-            slated: ['Today’s bookings and what each earned', 'The way through to correcting one']
-          }
-        }
-      }
+      { path: 'new', component: BookingComponent },
+      { path: 'today', component: TodayComponent }
     ]
   }
 ];
 
 @NgModule({
-  imports: [SectionChromeModule, RouterModule.forChild(routes)],
-  declarations: [TicketsShellComponent]
+  imports: [SectionChromeModule, PaymentModule, FormsModule, RouterModule.forChild(routes)],
+  declarations: [TicketsShellComponent, BookingComponent, TodayComponent]
 })
 export class TicketsModule {}

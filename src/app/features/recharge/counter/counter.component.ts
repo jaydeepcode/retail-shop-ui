@@ -15,7 +15,7 @@ import {
   TransactionResponse,
   TvConnectionResponse
 } from '../model/recharge.models';
-import { newIdempotencyKey } from '../services/idempotency-key';
+import { newIdempotencyKey } from '../../shared/idempotency-key';
 import { RechargeApiService } from '../services/recharge-api.service';
 import {
   asExistingCustomer,

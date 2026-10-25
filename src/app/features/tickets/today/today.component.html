@@ -1,0 +1,99 @@
+<!-- A tally, not a queue: nothing here is waiting to be done. -->
+<div class="today">
+
+  <p *ngIf="loadError" class="entry-error" role="alert">{{ loadError }}</p>
+
+  <!-- ---------- the day's figures ---------- -->
+  <section *ngIf="summary as day" class="card" aria-labelledby="day-heading">
+    <h2 id="day-heading" class="card-title">
+      Today
+      <span class="card-title-aside">{{ day.date }}</span>
+    </h2>
+
+    <dl class="day-figures">
+      <div>
+        <dt>Bookings</dt>
+        <dd class="mono">{{ day.bookings }}</dd>
+      </div>
+      <div>
+        <dt>Passengers</dt>
+        <dd class="mono">{{ day.passengers }}</dd>
+      </div>
+      <div>
+        <dt>Collected</dt>
+        <dd class="mono">₹{{ day.collectedTotal | number: '1.2-2' }}</dd>
+      </div>
+      <!-- The figure that is actually earnings. Fares are a pass-through. -->
+      <div class="day-earned">
+        <dt>We earned</dt>
+        <dd class="mono">₹{{ day.commissionTotal | number: '1.2-2' }}</dd>
+      </div>
+    </dl>
+
+    <!-- ⚠ Per account, because four different banks funded these fares and "₹8,400 left
+         the banks today" does not tell the owner whose account to check. -->
+    <ng-container *ngIf="day.byFundingAccount.length">
+      <hr class="rule">
+      <p class="field-label">Fares paid out</p>
+      <ul class="funding-list">
+        <li *ngFor="let account of day.byFundingAccount" class="funding-row">
+          <span class="funding-name">{{ labelFor(account.accountCode) }}</span>
+          <span class="field-note">{{ account.bookings }}
+            booking<span *ngIf="account.bookings !== 1">s</span></span>
+          <span class="mono funding-amount">₹{{ account.fareTotal | number: '1.2-2' }}</span>
+        </li>
+      </ul>
+      <p class="field-note">
+        A pass-through, not a cost — the customer paid it back at the counter.
+      </p>
+    </ng-container>
+
+    <p class="field-note pool-note">
+      The ticket till shares a drawer with recharge, so it is counted in the same
+      evening close.
+    </p>
+  </section>
+
+  <!-- ---------- the bookings themselves ---------- -->
+  <section class="card card-grow" aria-labelledby="list-heading">
+    <h2 id="list-heading" class="card-title">
+      Bookings
+      <span class="card-title-aside">
+        {{ bookings.length }} {{ bookings.length === 1 ? 'booking' : 'bookings' }}
+      </span>
+    </h2>
+
+    <p *ngIf="loading" class="field-note">Loading…</p>
+    <p *ngIf="!loading && !bookings.length" class="field-note">
+      Nothing booked yet today.
+    </p>
+
+    <ul *ngIf="bookings.length" class="booking-strip">
+      <li *ngFor="let booking of bookings; trackBy: bookingKey" class="booking-line">
+        <span class="booking-main">
+          <span class="booking-mode">{{ modeLabel(booking) }}</span>
+          <span class="booking-sub">
+            {{ booking.passengerCount }}
+            passenger<span *ngIf="booking.passengerCount !== 1">s</span><span
+              *ngIf="booking.shopFunded"> · {{ labelFor(booking.fundingAccountCode || '') }}</span><span
+              *ngIf="!booking.shopFunded"> · customer paid directly</span><span
+              *ngIf="booking.note"> · {{ booking.note }}</span>
+          </span>
+        </span>
+        <span class="booking-money">
+          <span class="mono booking-total">₹{{ booking.totalDue | number: '1.2-2' }}</span>
+          <span class="mono booking-earned">₹{{ booking.commissionAmount | number: '1.2-2' }} ours</span>
+        </span>
+      </li>
+    </ul>
+
+    <!-- ⚠ No edit and no delete, and that is the design. A correction goes through
+         FRD §8.3 — before the account's reconciliation point the voucher is deleted and
+         re-posted, after it a JOURNAL — and a button here would need its own copy of
+         that rule. -->
+    <p class="field-note">
+      A booking cannot be edited here. Corrections go through the day's close, so the
+      ledger keeps one account of what happened.
+    </p>
+  </section>
+</div>

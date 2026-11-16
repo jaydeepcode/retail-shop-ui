@@ -14,23 +14,10 @@ const routes: Routes = [
     component: AccountsShellComponent,
     children: [
       { path: '', redirectTo: 'close', pathMatch: 'full' },
-      {
-        path: 'close',
-        component: CloseComponent,
-        data: {
-          copy: {
-            title: 'Still to build on this screen',
-            note: 'Artboard 9. The recharge figures above are real; the rest needs the ledger close endpoints, which are S5.',
-            slated: [
-              'What is actually in the drawer, typed as one figure, and the difference against the books',
-              'Can you say why: four reasons, two of them new because money can arrive as well as go missing',
-              'What closing does — one record per business sharing the drawer, not one for the drawer',
-              'The water drawer and the safe, counted separately',
-              'Ticket’s own line of “the books say”, which needs a ticket module'
-            ]
-          }
-        }
-      },
+      // ⚠ No `copy` any more: the placeholder this route carried copy for is gone, replaced
+      // rather than kept beside the built half. The screen is artboard 9 whole — the count,
+      // the difference, the four reasons, the sweep and closing the day.
+      { path: 'close', component: CloseComponent },
       {
         path: 'upi',
         component: SectionPlaceholderComponent,

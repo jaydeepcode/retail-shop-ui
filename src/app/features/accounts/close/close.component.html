@@ -1,0 +1,359 @@
+<!--
+  Artboard 9. The recharge day summary is S3's and unchanged; everything below it is the
+  close itself. Two columns, as drawn: the count on the left, what closing does on the right.
+-->
+<app-day-summary></app-day-summary>
+
+<p *ngIf="loadError" class="fault" role="alert">
+  {{ loadError }}
+  <button type="button" class="btn btn-small" (click)="load()">Try again</button>
+</p>
+
+<p *ngIf="loading" class="loading">Reading what is closeable…</p>
+
+<div *ngIf="!loading && !loadError" class="close">
+
+  <!-- ------------------------------------------------------------------ -->
+  <!-- The count                                                          -->
+  <!-- ------------------------------------------------------------------ -->
+  <div class="col col-count">
+
+    <section *ngIf="pool as drawer; else nothingToClose" class="card" aria-labelledby="drawer-heading">
+
+      <header class="card-head">
+        <h2 id="drawer-heading" class="card-title">{{ poolTitle(drawer) }}</h2>
+        <span class="card-note">{{ poolSubtitle(drawer) }}</span>
+      </header>
+
+      <!--
+        ⚠ The day being sealed, and it is never just "today". A close dated today after
+        midnight seals yesterday's vouchers without ever counting them (§1.1).
+      -->
+      <div class="closing" *ngIf="!nothingLeftToClose"
+           [class.closing-unknown]="neverClosed">
+        <span class="closing-label">Closing</span>
+        <span class="mono closing-day">{{ dayWords(reconDate) }}</span>
+        <span class="closing-why" *ngIf="!neverClosed">
+          the oldest day still uncounted — never just “today”, or a count after midnight
+          seals yesterday unseen
+        </span>
+        <span class="closing-why" *ngIf="neverClosed">
+          this drawer has never been closed, so there is no earlier count to work forward
+          from — check the day before sealing it
+        </span>
+        <button type="button" class="btn btn-small closing-change"
+                *ngIf="dayOptions.length > 1"
+                [attr.aria-expanded]="changingDay"
+                (click)="changingDay = !changingDay">Change day</button>
+      </div>
+
+      <!--
+        ⚠ Every day up to today is sealed, so there is nothing to count. Found by closing
+        today and watching the screen go on offering to close it: the day clamped to today,
+        the button stayed live, and the only answer it could ever get was a 409.
+      -->
+      <div class="closing closing-done" *ngIf="nothingLeftToClose">
+        <span class="closing-label">Closed</span>
+        <span class="mono closing-day">up to {{ dayWords(pool!.lastReconDate!) }}</span>
+        <span class="closing-why">
+          nothing left to count — the next day cannot be closed until it has happened
+        </span>
+      </div>
+
+      <!--
+        Only days that are unclosed and not in the future. A free date picker would be
+        worse than no control at all, because it invites sealing the wrong day.
+      -->
+      <div *ngIf="changingDay" class="days" role="group" aria-label="Which day to close">
+        <button type="button" class="day"
+                *ngFor="let day of dayOptions; trackBy: trackByDay"
+                [class.day-on]="day === reconDate"
+                [attr.aria-pressed]="day === reconDate"
+                (click)="chooseDay(day)">{{ dayWords(day) }}</button>
+      </div>
+
+      <div class="figures" *ngIf="!nothingLeftToClose">
+
+        <div class="figure figure-books">
+          <div class="figure-label">The books say</div>
+          <div class="mono figure-value">₹{{ expected | number: '1.2-2' }}</div>
+          <div class="figure-rows">
+            <div class="figure-row" *ngFor="let member of members; trackBy: trackByMember">
+              <span>{{ tillLabel(member.displayName) }}</span>
+              <span class="mono">{{ member.derivedBalance | number: '1.2-2' }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="figure figure-count">
+          <label for="counted" class="figure-label">What is actually in it</label>
+          <div class="count-field">
+            <span class="mono count-rupee" aria-hidden="true">₹</span>
+            <input id="counted" type="text" inputmode="decimal" class="mono count-input"
+                   autocomplete="off"
+                   [(ngModel)]="countedInput" (ngModelChange)="onCountChanged()">
+          </div>
+          <!-- "the two businesses" is the member count, not a constant: a one-member pool
+               has nothing to split between and the sentence would read as a mistake. -->
+          <p class="figure-hint" *ngIf="!countedIsUnreadable && members.length > 1">
+            One figure for the whole drawer. You never split it between the
+            {{ memberCountWord }} businesses.
+          </p>
+          <p class="figure-hint" *ngIf="!countedIsUnreadable && members.length <= 1">
+            One figure for the whole drawer.
+          </p>
+          <p class="figure-hint figure-hint-bad" *ngIf="countedIsUnreadable" role="alert">
+            Type what is in the drawer in rupees — digits, with at most two decimals.
+          </p>
+        </div>
+
+        <!-- The difference, which decides everything below it. -->
+        <div class="figure figure-diff"
+             [class.figure-diff-over]="isOver"
+             [class.figure-diff-short]="difference !== null && !isOver && hasDifference"
+             [class.figure-diff-level]="counted !== null && !hasDifference">
+          <div class="figure-label">Difference</div>
+          <div class="mono figure-value" *ngIf="counted === null">—</div>
+          <div class="mono figure-value" *ngIf="counted !== null">
+            {{ isOver ? '+' : '' }}₹{{ difference | number: '1.2-2' }}
+          </div>
+          <div class="figure-rows" *ngIf="counted !== null">
+            <div class="figure-row">
+              <span>Counted − books</span>
+              <span class="mono">{{ counted | number: '1.0-2' }} − {{ expected | number: '1.0-2' }}</span>
+            </div>
+            <div class="figure-sentence" *ngIf="hasDifference">
+              ₹{{ differenceAbs | number: '1.0-2' }}
+              {{ isOver ? 'more in the drawer than the books expect.' : 'less in the drawer than the books expect.' }}
+            </div>
+            <div class="figure-sentence" *ngIf="!hasDifference">
+              The drawer matches the books exactly.
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <ng-template #nothingToClose>
+      <section class="card">
+        <h2 class="card-title">Nothing to count tonight</h2>
+        <p class="card-note">
+          No drawer can be balanced at the moment. Anything listed below still closes on its own.
+        </p>
+      </section>
+    </ng-template>
+
+    <!-- ---------------------------------------------------------------- -->
+    <!-- Can you say why                                                  -->
+    <!-- ---------------------------------------------------------------- -->
+    <section class="card" aria-labelledby="why-heading" *ngIf="pool && !nothingLeftToClose">
+      <header class="card-head">
+        <h2 id="why-heading" class="card-title card-title-small">Can you say why?</h2>
+        <span class="card-note">
+          naming it keeps the reason; leaving it blank just records that it happened
+        </span>
+      </header>
+
+      <p class="reasons-idle" *ngIf="counted === null">Count the drawer first.</p>
+      <p class="reasons-idle" *ngIf="counted !== null && !hasDifference">
+        The count matches the books exactly, so there is nothing to explain.
+      </p>
+
+      <!--
+        ⚠ Suggested, never selected. "Small change rounding" carries the word "likely" when
+        the difference is small and positive, and the operator still has to press it — a
+        preselected reason is a reason nobody chose (§1.1).
+      -->
+      <div class="reasons" *ngIf="hasDifference" role="group" aria-label="Why the drawer differs">
+        <button type="button" class="reason"
+                *ngFor="let reason of reasons; trackBy: trackByReason"
+                [class.reason-on]="isSelected(reason)"
+                [class.reason-likely]="isSuggested(reason)"
+                [attr.aria-pressed]="isSelected(reason)"
+                [disabled]="!isAvailable(reason)"
+                (click)="choose(reason)">
+          <span class="reason-label">{{ reason.label }}</span>
+          <span class="reason-hint" *ngIf="isSuggested(reason)">{{ suggestionCaption }}</span>
+          <span class="reason-hint" *ngIf="!isSuggested(reason) && isAvailable(reason) && reason.hint">
+            {{ reason.hint }}
+          </span>
+          <span class="reason-hint" *ngIf="!isAvailable(reason)">{{ unavailableBecause(reason) }}</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- ---------------------------------------------------------------- -->
+    <!-- Also to close tonight                                            -->
+    <!-- ---------------------------------------------------------------- -->
+    <section class="card card-tight" aria-labelledby="also-heading"
+             *ngIf="otherPools.length || singleAccounts.length">
+      <h2 id="also-heading" class="also-head">Also to close tonight</h2>
+
+      <!-- A pool the server says cannot balance. It states the fact; this screen words it. -->
+      <ng-container *ngFor="let other of otherPools">
+        <div class="also-row">
+          <span class="also-name">{{ poolTitle(other) }}</span>
+          <span class="also-figure">books say ₹{{ other.expectedAmount | number: '1.0-2' }}</span>
+          <span class="tag" *ngIf="!other.closeable">CANNOT BALANCE YET</span>
+        </div>
+        <p class="also-why" *ngIf="!other.closeable">{{ cannotBalanceBecause(other) }}</p>
+      </ng-container>
+
+      <div class="also-row" *ngFor="let account of countableAccounts">
+        <span class="also-name">The safe</span>
+        <span class="also-figure">counted on its own, after the sweep</span>
+        <button type="button" class="btn btn-small" *ngIf="!safeOpen && !safeClosed"
+                (click)="openSafeCount()">Count it</button>
+        <span class="tag tag-done" *ngIf="safeClosed">COUNTED</span>
+      </div>
+
+      <!--
+        ⚠ Named rather than dropped. The preview answers for everything closeable, so the
+        banks, UPI clearing and the four floats arrive here too — and a float's count is the
+        only place its balance may be corrected, which needs the portal figure this screen
+        does not have. A screen that silently omitted them would read as complete.
+      -->
+      <p class="also-why" *ngIf="elsewhereSentence">{{ elsewhereSentence }}</p>
+
+      <!-- The safe's own count: endpoint 4, no sweep, and no reason buttons. -->
+      <div class="safe" *ngIf="safeOpen && safe as theSafe">
+        <div class="safe-head">
+          <span class="safe-title">The safe on {{ dayWords(safeReconDate) }}</span>
+          <span class="safe-books">books say <span class="mono">₹{{ theSafe.derivedBalance | number: '1.2-2' }}</span></span>
+        </div>
+        <div class="safe-fields">
+          <label for="safe-counted">Counted</label>
+          <input id="safe-counted" type="text" inputmode="decimal" class="mono"
+                 autocomplete="off" [(ngModel)]="safeCountedInput">
+          <label for="safe-note">Note</label>
+          <input id="safe-note" type="text" [(ngModel)]="safeNote">
+        </div>
+        <p class="safe-diff" *ngIf="safeDifference !== null && safeDifference !== 0">
+          <span class="mono">{{ safeDifference > 0 ? '+' : '' }}₹{{ safeDifference | number: '1.2-2' }}</span>
+          against the books. A difference on the safe is recorded as cash
+          {{ safeDifference > 0 ? 'over' : 'short' }} — always, however small.
+        </p>
+        <p class="fault" *ngIf="safeError" role="alert">{{ safeError }}</p>
+        <button type="button" class="btn" [disabled]="safeCounted === null || safeClosing"
+                (click)="closeSafe()">
+          {{ safeClosing ? 'Closing…' : 'Close the safe for ' + dayWords(safeReconDate) }}
+        </button>
+      </div>
+
+      <p class="safe-done" *ngIf="safeClosed as done" role="status">
+        The safe is counted for {{ dayWords(done.reconDate) }}:
+        <span class="mono">₹{{ done.countedAmount | number: '1.2-2' }}</span> against
+        <span class="mono">₹{{ done.ledgerAmount | number: '1.2-2' }}</span> on the books.
+      </p>
+    </section>
+
+    <div class="col-filler"></div>
+  </div>
+
+  <!-- ------------------------------------------------------------------ -->
+  <!-- What closing does                                                  -->
+  <!-- ------------------------------------------------------------------ -->
+  <div class="col col-does" *ngIf="pool">
+    <section class="card card-does" aria-labelledby="does-heading">
+      <h2 id="does-heading" class="does-head">What closing does — all at once</h2>
+
+      <!-- ⚠ All of it describes a close that cannot happen once every day is sealed. -->
+      <ng-container *ngIf="!nothingLeftToClose">
+        <div class="step" *ngFor="let step of steps; let i = index">
+          <div class="mono step-no" aria-hidden="true">{{ i + 1 }}</div>
+          <div>
+            <div class="step-title">{{ step.title }}</div>
+            <div class="step-detail">{{ step.detail }}</div>
+          </div>
+        </div>
+
+        <div class="rule"></div>
+
+        <!--
+          ⚠ The safe's projection is the safe plus the counted figure, in every case — an
+          explained variance hits CASH_SAFE and the sweep carries the expected figure, an
+          unexplained one moves the till and the sweep carries the counted one. See
+          `safeAfterClosing`.
+        -->
+        <div class="after">
+          <div class="after-head">After closing</div>
+          <div class="after-row" *ngFor="let member of members; trackBy: trackByMember">
+            <span>{{ tillLabel(member.displayName) }} till</span>
+            <span class="mono">₹0.00</span>
+          </div>
+          <div class="after-row after-row-safe" *ngIf="safeAfterClosing !== null">
+            <span>Safe</span>
+            <span class="mono">₹{{ safeAfterClosing | number: '1.2-2' }}</span>
+          </div>
+        </div>
+
+        <div class="note-field">
+          <label for="close-note">Anything to add</label>
+          <input id="close-note" type="text" [(ngModel)]="note" autocomplete="off">
+        </div>
+      </ng-container>
+
+      <p class="does-idle" *ngIf="nothingLeftToClose && !closed">
+        Every day up to today is counted and sealed. The safe can still be counted on its
+        own, and tomorrow’s drawer opens at midnight.
+      </p>
+
+      <div class="does-filler"></div>
+
+      <p class="fault" *ngIf="closeError" role="alert">{{ closeError }}</p>
+
+      <!-- ⚠ Names the day it is sealing. The artboard's "for today" is wrong after midnight. -->
+      <button type="button" class="btn btn-primary" *ngIf="!closed && !nothingLeftToClose"
+              [disabled]="!canClose" (click)="close()">
+        {{ closing ? 'Closing…' : closeButtonLabel }}
+      </button>
+
+      <!--
+        The close that was written — or, on a replay, the one that already existed. The
+        server answers 409 carrying it rather than a bare refusal, so the operator standing
+        over a counted drawer gets figures either way.
+      -->
+      <div class="done" *ngIf="closed as done" role="status">
+        <div class="done-head">
+          {{ closedWasReplay ? 'Already closed' : 'Closed' }} for {{ dayWords(done.reconDate) }}
+        </div>
+        <p class="done-line" *ngIf="closedWasReplay">
+          This day was already sealed, so nothing was written again. These are the original
+          figures.
+        </p>
+        <div class="done-row">
+          <span>Counted</span><span class="mono">₹{{ done.countedAmount | number: '1.2-2' }}</span>
+        </div>
+        <div class="done-row">
+          <span>The books said</span><span class="mono">₹{{ done.expectedAmount | number: '1.2-2' }}</span>
+        </div>
+        <div class="done-row">
+          <span>Difference</span>
+          <span class="mono">
+            {{ closedVariance > 0 ? '+' : '' }}₹{{ closedVariance | number: '1.2-2' }}
+          </span>
+        </div>
+        <div class="done-row" *ngFor="let member of done.members">
+          <span>{{ member.accountCode }}</span>
+          <span class="mono">
+            ₹{{ member.countedAmount | number: '1.2-2' }} against ₹{{ member.ledgerAmount | number: '1.2-2' }}
+          </span>
+        </div>
+        <p class="done-line" *ngIf="!closedSweptNothing">
+          Swept <span class="mono">₹{{ done.sweep.amount | number: '1.2-2' }}</span> to the safe
+          on voucher {{ done.sweep.voucherId }}.
+        </p>
+        <p class="done-line" *ngIf="closedSweptNothing">
+          Nothing was swept: every till already recorded nothing. The count is recorded.
+        </p>
+      </div>
+
+      <p class="does-foot">
+        Once closed, that day’s entries can no longer be edited — a mistake found later is
+        corrected by a dated entry instead. That lock is the whole reason this screen exists.
+      </p>
+    </section>
+  </div>
+
+</div>

@@ -267,11 +267,23 @@ describe('DaySummaryComponent', () => {
     expect(rows[0].textContent).toContain('DIRECT');
   });
 
-  it('says what the rest of the close screen still needs', () => {
+  /**
+   * ⚠ Rewritten in S5, because what this panel had to say about itself changed.
+   *
+   * It asserted the words "Not here yet" and "nothing on this screen seals anything" — true
+   * in S3, when the close below was a placeholder. S5 built the count, the difference, the
+   * four reasons, the sweep and the close, so that sentence became a panel denying the
+   * thing printed directly underneath it. The assertion is kept rather than deleted,
+   * pointed at the narrower claim that is still true: this panel is the recharge side only.
+   */
+  it('says that it covers the recharge side alone, not the whole drawer', () => {
     respond(summary());
     const text = fixture.nativeElement.textContent as string;
-    expect(text).toContain('Not here yet');
-    expect(text).toContain('nothing on this screen seals anything');
+    expect(text).toContain('Recharge only');
+    expect(text).toContain('the recharge side of the drawer');
+    // ⚠ And no longer claims the close is unbuilt.
+    expect(text).not.toContain('Not here yet');
+    expect(text).not.toContain('nothing on this screen seals anything');
   });
 
   it('handles a day with no completed recharges', () => {

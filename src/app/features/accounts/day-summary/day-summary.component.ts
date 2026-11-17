@@ -58,16 +58,21 @@ import { errorSentence } from '../../recharge/services/recharge-error';
  * (FY2026-27 ₹2,957 against ₹2,009 of operator commission) and folding it into takings
  * would destroy the only check there is on the operator-paid rate.
  *
- * ⚠ WHAT IS NOT HERE, and why. Artboard 9 also draws the count input, the difference, the
- * four "can you say why" reasons, the sweep to the safe, "Close the drawer for today", the
- * water drawer and the safe. All of those need the ledger close endpoints of
- * `design-ledger-api.md` §1.3, which this slice did not build — treasury is S5
- * (`implementation-plan.md` §1). The route's placeholder still names them, and this panel
- * sits above it rather than replacing it, so the screen says plainly which half exists.
+ * ⚠ WHAT IS NOT HERE, and why — ✅ **corrected in S5, because the answer changed.** This
+ * paragraph read: "Artboard 9 also draws the count input, the difference, the four 'can you
+ * say why' reasons, the sweep to the safe, 'Close the drawer for today', the water drawer
+ * and the safe. All of those need the ledger close endpoints … which this slice did not
+ * build … The route's placeholder still names them."
  *
- * It reads `/recharge/day-summary`, so it covers recharge alone. Artboard 9's "The books
- * say" box has a line per business sharing the drawer, and ticket's line has no endpoint
- * and no module yet.
+ * **S5 built all of them.** `CloseComponent` renders them below this panel and the
+ * placeholder is gone — so the on-screen "Not here yet" block went with it, having become a
+ * screen that denied the thing printed underneath it. The note in its place says what is
+ * still true and no more.
+ *
+ * What is still true: this panel reads `/recharge/day-summary`, so it covers recharge
+ * alone. Artboard 9's "The books say" box has a line per business sharing the drawer, and
+ * that box is now the close preview's, which carries every member of the pool —
+ * `CASH_TICKET` included. This panel is the recharge detail beside it, not its source.
  */
 @Component({
   selector: 'app-day-summary',

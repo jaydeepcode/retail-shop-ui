@@ -1,0 +1,695 @@
+// Artboard 9. Every colour here comes from `_tokens.scss`, which was measured off the
+// artboards; the three variance tints are the artboard's own and are declared below
+// because nothing else in the app has an "over" or a "short".
+@use '../../shared/tokens' as t;
+
+$over-bg:     #FFF3DF;
+$over-border: #E3A857;
+$over-ink:    #6E3C00;
+$over-value:  #8A4B00;
+
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  font-family: t.$sans;
+  color: t.$ink;
+}
+
+.mono { font-family: t.$mono; }
+
+.loading,
+.fault {
+  margin: 0;
+  font-size: 13px;
+  color: t.$ink-muted;
+}
+
+.fault {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 13px;
+  border-radius: 4px;
+  background: $over-bg;
+  border: 1px solid $over-border;
+  color: $over-ink;
+}
+
+// Two columns, as drawn: the count at 760px, what closing does taking the rest. Below
+// 1180px they stack rather than squeeze — the count field is the one control on this
+// screen that must stay large.
+.close {
+  display: flex;
+  gap: 22px;
+  align-items: stretch;
+}
+
+.col {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.col-count {
+  width: 760px;
+  flex-shrink: 0;
+}
+
+.col-does {
+  flex-grow: 1;
+}
+
+.col-filler { flex-grow: 1; }
+
+@media (max-width: 1180px) {
+  .close { flex-direction: column; }
+  .col-count { width: auto; }
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px 22px;
+  background: t.$surface;
+  border: 1px solid t.$border;
+  border-radius: 6px;
+}
+
+.card-tight {
+  gap: 11px;
+  padding: 16px 22px;
+}
+
+.card-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.card-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.card-title-small { font-size: 15px; }
+
+.card-note {
+  font-size: 13px;
+  color: t.$ink-muted;
+}
+
+// -- The day being sealed ---------------------------------------------------
+
+.closing {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 11px 15px;
+  border-radius: 4px;
+  background: t.$surface-sunk;
+  border: 1px solid t.$border;
+}
+
+// A drawer that has never been closed has no earlier count to work forward from, so the
+// day is the one thing on the row that is not derived. Say so in the border.
+.closing-unknown {
+  background: $over-bg;
+  border-color: $over-border;
+}
+
+.closing-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: t.$ink-muted;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.closing-day {
+  font-size: 18px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.closing-why {
+  font-size: 12px;
+  color: t.$ink-muted;
+  flex: 1 1 240px;
+}
+
+.closing-change { flex-shrink: 0; }
+
+.days {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.day {
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 4px;
+  border: 1px solid t.$border;
+  background: t.$surface;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: t.$ink;
+  cursor: pointer;
+}
+
+.day-on {
+  border: 2px solid t.$primary;
+  background: t.$primary-tint;
+  color: t.$primary-dark;
+}
+
+// -- The three figures ------------------------------------------------------
+
+.figures {
+  display: flex;
+  gap: 14px;
+  align-items: stretch;
+  flex-wrap: wrap;
+}
+
+.figure {
+  flex: 1 1 200px;
+  min-width: 0;
+  padding: 15px 17px;
+  border-radius: 5px;
+}
+
+.figure-books {
+  background: t.$surface-sunk;
+  border: 1px solid t.$border-light;
+}
+
+.figure-count {
+  padding: 16px 0;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.figure-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: t.$ink-muted;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.figure-value {
+  font-size: 30px;
+  font-weight: 600;
+  margin-top: 7px;
+}
+
+.figure-rows {
+  margin-top: 9px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.figure-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+  color: t.$ink-muted;
+}
+
+.figure-sentence {
+  font-size: 12px;
+  color: t.$ink-muted;
+}
+
+.figure-hint {
+  margin: 0;
+  font-size: 11px;
+  color: t.$ink-muted;
+}
+
+.figure-hint-bad { color: $over-value; }
+
+.count-field {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.count-rupee {
+  font-size: 28px;
+  color: t.$ink-muted;
+}
+
+// The one control that has to be unmissable: it is what the operator is here to type.
+.count-input {
+  flex-grow: 1;
+  width: 0;
+  min-width: 0;
+  height: 62px;
+  box-sizing: border-box;
+  padding: 0 15px;
+  border: 2px solid t.$primary;
+  border-radius: 4px;
+  font-size: 30px;
+  font-weight: 600;
+  text-align: right;
+  background: t.$surface;
+  color: t.$ink;
+}
+
+// Over, short, level. The two differ in lightness as well as hue, so the state does not
+// rest on colour alone — the figure carries its own sign and sentence besides.
+.figure-diff {
+  background: t.$surface-sunk;
+  border: 1px solid t.$border-light;
+
+  .figure-label,
+  .figure-row,
+  .figure-sentence { color: t.$ink-muted; }
+}
+
+.figure-diff-over,
+.figure-diff-short {
+  background: $over-bg;
+  border-color: $over-border;
+
+  .figure-label,
+  .figure-row,
+  .figure-sentence { color: $over-ink; }
+
+  .figure-value { color: $over-value; }
+}
+
+.figure-diff-level {
+  background: #F2F7F4;
+  border-color: #CBE2D5;
+
+  .figure-value { color: t.$badge-ok; }
+}
+
+// -- The four reasons -------------------------------------------------------
+
+.reasons {
+  display: flex;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+
+.reasons-idle {
+  margin: 0;
+  font-size: 13px;
+  color: t.$ink-muted;
+}
+
+.reason {
+  min-height: 56px;
+  padding: 8px 17px;
+  border-radius: 5px;
+  border: 1px solid t.$border;
+  background: t.$surface;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  font-family: inherit;
+  cursor: pointer;
+
+  &:disabled {
+    cursor: not-allowed;
+    background: t.$surface-sunk;
+    color: t.$ink-faint;
+
+    .reason-label { color: t.$ink-faint; }
+  }
+}
+
+.reason-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: t.$ink;
+}
+
+.reason-hint {
+  font-size: 11px;
+  color: t.$ink-muted;
+}
+
+// ⚠ SUGGESTED, NOT SELECTED. The tint says "likely"; the ring and the weight say
+// "chosen", and only `.reason-on` has them. A preselected reason is a reason nobody chose.
+.reason-likely {
+  background: t.$primary-tint;
+  border-color: t.$primary;
+
+  .reason-label { color: t.$primary-dark; }
+  .reason-hint { color: #3A5BBF; }
+}
+
+.reason-on {
+  border: 2px solid t.$primary-dark;
+  background: t.$primary;
+  padding: 7px 16px;
+
+  .reason-label { color: #FFFFFF; font-weight: 600; }
+  .reason-hint { color: #D7DEFA; }
+}
+
+// -- Also to close tonight --------------------------------------------------
+
+.also-head {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: t.$ink-muted;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.also-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 13px;
+  border-radius: 4px;
+  border: 1px solid t.$border-light;
+}
+
+.also-name {
+  font-size: 13px;
+  font-weight: 600;
+  flex-grow: 1;
+}
+
+.also-figure {
+  font-size: 12px;
+  color: t.$ink-muted;
+}
+
+.also-why {
+  margin: 0;
+  font-size: 11px;
+  color: t.$ink-muted;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 21px;
+  padding: 0 8px;
+  border-radius: 3px;
+  background: #EDEFF2;
+  color: t.$ink-muted;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.tag-done {
+  background: #E4EEE8;
+  color: t.$badge-ok;
+}
+
+.safe {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 13px;
+  border-radius: 4px;
+  background: t.$surface-sunk;
+  border: 1px solid t.$border;
+}
+
+.safe-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.safe-title {
+  font-size: 13px;
+  font-weight: 600;
+  flex-grow: 1;
+}
+
+.safe-books {
+  font-size: 12px;
+  color: t.$ink-muted;
+}
+
+.safe-fields {
+  display: grid;
+  grid-template-columns: auto minmax(120px, 1fr) auto minmax(140px, 2fr);
+  align-items: center;
+  gap: 9px;
+
+  label {
+    font-size: 12px;
+    color: t.$ink-muted;
+  }
+
+  input {
+    min-width: 0;
+    height: 38px;
+    box-sizing: border-box;
+    padding: 0 11px;
+    border: 1px solid t.$border;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 14px;
+    background: t.$surface;
+    color: t.$ink;
+  }
+
+  input.mono {
+    font-family: t.$mono;
+    text-align: right;
+    font-weight: 600;
+  }
+}
+
+.safe-diff,
+.safe-done {
+  margin: 0;
+  font-size: 12px;
+  color: t.$ink-muted;
+}
+
+// -- What closing does ------------------------------------------------------
+
+.card-does {
+  flex-grow: 1;
+  gap: 14px;
+}
+
+.does-head {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: t.$ink-muted;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.step {
+  display: flex;
+  gap: 12px;
+}
+
+.step-no {
+  width: 22px;
+  height: 22px;
+  border-radius: 11px;
+  background: t.$ink;
+  color: #FFFFFF;
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.step-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.step-detail {
+  font-size: 12px;
+  color: t.$ink-muted;
+  margin-top: 3px;
+}
+
+.rule {
+  height: 1px;
+  background: t.$border-light;
+}
+
+.after {
+  padding: 14px 16px;
+  border-radius: 5px;
+  background: t.$surface-sunk;
+  border: 1px solid t.$border-light;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.after-head {
+  font-size: 12px;
+  font-weight: 600;
+  color: t.$ink-muted;
+}
+
+.after-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+
+  span:first-child { color: t.$ink-muted; }
+  span:last-child { font-weight: 600; }
+}
+
+.after-row-safe {
+  border-top: 1px solid t.$border-light;
+  padding-top: 8px;
+}
+
+.note-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+
+  label {
+    font-size: 12px;
+    color: t.$ink-muted;
+  }
+
+  input {
+    height: 42px;
+    box-sizing: border-box;
+    padding: 0 13px;
+    border: 1px solid t.$border;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 14px;
+    background: t.$surface;
+    color: t.$ink;
+  }
+}
+
+.does-filler { flex-grow: 1; }
+
+.does-foot {
+  margin: 0;
+  font-size: 11px;
+  color: t.$ink-muted;
+  text-align: center;
+}
+
+.done {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 5px;
+  background: #F2F7F4;
+  border: 1px solid #CBE2D5;
+}
+
+.done-head {
+  font-size: 14px;
+  font-weight: 600;
+  color: t.$badge-ok;
+}
+
+.done-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+  color: t.$ink-muted;
+}
+
+.done-line {
+  margin: 0;
+  font-size: 12px;
+  color: t.$ink-muted;
+}
+
+// -- Buttons ----------------------------------------------------------------
+
+.btn {
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 4px;
+  border: 1px solid t.$border;
+  background: t.$surface;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: t.$ink;
+  cursor: pointer;
+
+  &:disabled {
+    cursor: not-allowed;
+    color: t.$ink-faint;
+    background: t.$surface-sunk;
+  }
+}
+
+// 30px on the artboard, which is below the 44px target; the hit area is padded out to 44
+// instead of shrinking the control, so the row still reads as drawn.
+.btn-small {
+  min-height: 30px;
+  padding: 4px 12px;
+  font-size: 12px;
+  position: relative;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: -7px -2px;
+  }
+}
+
+.btn-primary {
+  min-height: 58px;
+  border: none;
+  background: t.$primary;
+  color: #FFFFFF;
+  font-size: 17px;
+
+  &:disabled {
+    background: #AEB7C7;
+    color: #FFFFFF;
+  }
+}
+
+// The drawer is sealed up to today, so there is nothing to count. See `nothingLeftToClose`.
+.closing-done {
+  background: #F2F7F4;
+  border-color: #CBE2D5;
+}
+
+.does-idle {
+  margin: 0;
+  font-size: 13px;
+  color: t.$ink-muted;
+}

@@ -1,8 +1,9 @@
 /**
- * The wire shapes of `AccountsController` — endpoints 1-4 of `design-ledger-api.md` §1.1.
+ * The wire shapes of `AccountsController` — endpoints 1-4 of `design-ledger-api.md` §1.1,
+ * plus 5 and 6 (§1.2, the UPI settlement tab) below. Endpoints 7-9, 12 and 19 are being
+ * built in parallel and have nothing here yet.
  *
- * Mirrors `accounting/model/{request,response}/*.java` field for field. Endpoints 5-9, 12
- * and 19 are being built in parallel and have nothing here yet.
+ * Mirrors `accounting/model/{request,response}/*.java` field for field.
  */
 
 // ---------------------------------------------------------------------------
@@ -173,6 +174,93 @@ export interface PoolCloseResponse {
   sweep: Sweep;
   members: ReconciliationResponse[];
   /** `true` when this close already existed and nothing was written. */
+  replayed: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Endpoint 5 — GET /accounts/upi-clearing/pending
+// ---------------------------------------------------------------------------
+
+/**
+ * One collection date still (partly) in transit (`UpiPendingResponse.PendingDate.java`).
+ *
+ * ⚠ **`pendingAmount` can be negative.** A correcting `JOURNAL` crediting `UPI_CLEARING` is
+ * dated the day the mistake was *found* (FRD §8.3), so it can take a date below what has
+ * already been settled against it. The server shows a negative row rather than filtering
+ * it out — a reconciliation that silently stopped adding up is worse than an odd figure.
+ */
+export interface UpiPendingDate {
+  collectionDate: string;
+  /** What customers paid by UPI that day. */
+  collectedAmount: number;
+  /** What the bank has credited against it so far, across however many settlements (A4). */
+  settledAmount: number;
+  /** `collectedAmount − settledAmount`, and what endpoint 6 will accept at most for this date. */
+  pendingAmount: number;
+  /** Days from `collectionDate` to the server's `asOf`. `0` on the day itself. */
+  ageDays: number;
+}
+
+/** What is still in transit, grouped by collection date and aged (§1.2). */
+export interface UpiPendingResponse {
+  asOf: string;
+  totalPending: number;
+  /** Oldest first — `UpiPendingResponse.java`'s own words: "the order the money should arrive in". */
+  dates: UpiPendingDate[];
+}
+
+// ---------------------------------------------------------------------------
+// Endpoint 6 — POST /accounts/upi-clearing/settlements
+// ---------------------------------------------------------------------------
+
+/**
+ * What the bank actually credited (A4, `UpiSettlementRequest.java`).
+ *
+ * ⚠ **This write takes a client-generated `Idempotency-Key`, unlike endpoints 2 and 4
+ * above.** §1.3's table originally had this key server-derived —
+ * `UPI_SETTLEMENT:<collectionDate>:<n>` — and that was corrected on 2026-11-16 specifically
+ * because a server-derived key double-posts a settlement on retry: the server would derive
+ * `n + 1` for the retry too, recording the bank's credit twice. `newIdempotencyKey` from
+ * `shared/` is the rule here.
+ */
+export interface UpiSettlementRequest {
+  /** The day the money was taken from customers. Identifies the settlement. */
+  collectionDate: string;
+  /** The day it landed in the bank. Never before `collectionDate`. */
+  settledOn: string;
+  /** What the bank actually credited — not necessarily the whole collected total. */
+  settledAmount: number;
+  note?: string;
+}
+
+/**
+ * One recorded settlement — the body of both the `201` and the `409` a replay returns.
+ *
+ * ⚠ **Unlike a close's replay, this is the SAME shape on both responses** — `replayed` is
+ * simply `true` on the second. There is no separate type to narrow to.
+ *
+ * ⚠ **`bankAccountCode` is read-only confirmation and arrives only here.**
+ * `rc_setting['bank.default.account']` resolves server-side (log §9.3) and is deliberately
+ * absent from `GET /config` too — "shipping it to a client invites a client to send it
+ * back." This screen has no account picker and builds none: the destination is named
+ * generically until a settlement actually lands and the server says which account it used.
+ */
+export interface UpiSettlementResponse {
+  collectionDate: string;
+  settledOn: string;
+  settledAmount: number;
+  /** What was collected that day, re-read at the moment of this settlement. */
+  collectedAmount: number;
+  /** Everything credited against this collection date so far, including this call. */
+  settledToDate: number;
+  /** What is still in transit for this date after this call. Positive is normal (§1.2). */
+  residualAmount: number;
+  /** `UPI_SETTLEMENT:<collectionDate>:<n>` — the published identity, not the idempotency key. */
+  sequence: string;
+  bankAccountCode: string;
+  voucherId: number;
+  reconciliation: ReconciliationResponse;
+  /** `true` when this exact `Idempotency-Key` had already been recorded; the body of the 409. */
   replayed: boolean;
 }
 

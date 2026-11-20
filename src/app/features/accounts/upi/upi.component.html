@@ -1,0 +1,181 @@
+<!--
+  Artboard 10. Two columns, as drawn: still on its way, by collection date, on the left;
+  what landed in the bank, against the selected date, on the right.
+-->
+
+<p *ngIf="loadError" class="fault" role="alert">
+  {{ loadError }}
+  <button type="button" class="btn btn-small" (click)="load()">Try again</button>
+</p>
+
+<p *ngIf="loading" class="loading">Reading what is still on its way…</p>
+
+<div *ngIf="!loading && !loadError" class="upi">
+
+  <!-- ------------------------------------------------------------------ -->
+  <!-- Still on its way                                                   -->
+  <!-- ------------------------------------------------------------------ -->
+  <div class="col col-pending">
+
+    <section class="card card-total">
+      <div>
+        <div class="label">Still on its way</div>
+        <div class="mono total">₹{{ pending?.totalPending ?? 0 | number: '1.2-2' }}</div>
+      </div>
+      <div class="rule-v"></div>
+      <p class="hint">
+        GPay confirms instantly but the bank credit lands the next morning, batched. Until
+        it lands the money is real to the customer and not yet real to the bank, so it
+        waits here.
+      </p>
+    </section>
+
+    <section class="card card-tight" aria-labelledby="dates-heading" *ngIf="rows.length">
+      <h2 id="dates-heading" class="section-head">By the day it was collected</h2>
+
+      <button type="button" class="row"
+              *ngFor="let row of rows; trackBy: trackByDate"
+              [class.row-selected]="row.collectionDate === selectedDate"
+              [class.row-partial]="row.collectionDate !== selectedDate && row.settledAmount > 0"
+              [attr.aria-pressed]="row.collectionDate === selectedDate"
+              (click)="select(row)">
+        <span class="row-main">
+          <span class="row-day">{{ dayWords(row.collectionDate) }}</span>
+          <span class="row-sub">
+            <ng-container *ngIf="row.settledAmount > 0">
+              ₹{{ row.collectedAmount | number: '1.0-2' }} collected, ₹{{ row.settledAmount | number: '1.0-2' }}
+              settled so far — ₹{{ row.pendingAmount | number: '1.0-2' }} still to come
+            </ng-container>
+            <ng-container *ngIf="row.settledAmount === 0">nothing settled yet</ng-container>
+          </span>
+        </span>
+        <span class="tag" [class.tag-partial]="row.settledAmount > 0">{{ ageWords(row.ageDays) }}</span>
+        <span class="mono row-amount">₹{{ row.pendingAmount | number: '1.2-2' }}</span>
+      </button>
+
+      <p class="also-why">
+        Nothing is ever written off by itself. A leftover stays here and keeps getting
+        older until it lands or you decide what to do about it.
+      </p>
+    </section>
+
+    <section class="card" *ngIf="!rows.length">
+      <h2 class="card-title-small">Nothing still on its way</h2>
+      <p class="hint">Every UPI collection has been settled in full.</p>
+    </section>
+
+    <div class="col-filler"></div>
+  </div>
+
+  <!-- ------------------------------------------------------------------ -->
+  <!-- What landed in the bank                                            -->
+  <!-- ------------------------------------------------------------------ -->
+  <div class="col col-record" *ngIf="selected as row">
+    <section class="card card-record" aria-labelledby="record-heading">
+      <h2 id="record-heading" class="card-title">What landed in the bank</h2>
+
+      <div class="field">
+        <span class="field-label">For money collected on</span>
+        <div class="chip">
+          <span class="chip-day">{{ dayWords(row.collectionDate) }}</span>
+          <span class="mono chip-amount">₹{{ row.pendingAmount | number: '1.2-2' }}</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="landed" class="field-label">Amount the bank credited</label>
+        <div class="amount-field">
+          <span class="mono amount-rupee" aria-hidden="true">₹</span>
+          <input id="landed" type="text" inputmode="decimal" class="mono amount-input"
+                 autocomplete="off"
+                 [(ngModel)]="amountInput" (ngModelChange)="onFieldChanged()">
+        </div>
+        <p class="field-hint" *ngIf="!amountIsUnreadable && !amountTooHigh">
+          Type what the statement shows, not what you expected. If it is less, the rest
+          simply stays on the left and ages.
+        </p>
+        <p class="field-hint field-hint-bad" *ngIf="amountIsUnreadable" role="alert">
+          Type a figure in rupees — digits, with at most two decimals.
+        </p>
+        <p class="field-hint field-hint-bad" *ngIf="amountTooHigh" role="alert">
+          That is more than the ₹{{ row.pendingAmount | number: '1.2-2' }} still pending for
+          this date.
+        </p>
+      </div>
+
+      <div class="field">
+        <label for="landed-on" class="field-label-small">Date it landed</label>
+        <input id="landed-on" type="date" [(ngModel)]="settledOnInput" (ngModelChange)="onFieldChanged()">
+        <p class="field-hint field-hint-bad" *ngIf="settledOnBeforeCollection" role="alert">
+          Money cannot land before it was taken.
+        </p>
+        <p class="field-hint field-hint-bad" *ngIf="settledOnInFuture" role="alert">
+          Record the settlement on the day it lands, not ahead of it.
+        </p>
+      </div>
+
+      <div class="match"
+           [class.match-ok]="amount !== null && matchesExactly"
+           [class.match-short]="amount !== null && !matchesExactly && !amountTooHigh">
+        <ng-container *ngIf="amount !== null && !amountTooHigh">
+          <span class="match-label">{{ matchesExactly ? 'Matches exactly' : 'Leaves a residue' }}</span>
+          <span class="mono match-value">₹{{ (leftover ?? 0) | number: '1.2-2' }} left over</span>
+        </ng-container>
+        <span class="match-label" *ngIf="amount === null">Type an amount to see what is left over</span>
+      </div>
+
+      <div class="rule"></div>
+
+      <div class="goes">
+        <div class="section-head">Where it goes</div>
+        <div class="goes-row">
+          <span>Out of money on its way</span>
+          <span class="mono">&minus;₹{{ (amount ?? 0) | number: '1.2-2' }}</span>
+        </div>
+        <div class="goes-row">
+          <span>Into the shop’s bank account</span>
+          <span class="mono">+₹{{ (amount ?? 0) | number: '1.2-2' }}</span>
+        </div>
+        <p class="goes-hint">
+          Which bank receives it comes from a setting, not from the code, so a second
+          account one day is a configuration change — the receipt below names it once this
+          is recorded.
+        </p>
+      </div>
+
+      <div class="col-filler"></div>
+
+      <p class="fault" *ngIf="recordError" role="alert">{{ recordError }}</p>
+
+      <button type="button" class="btn btn-primary" [disabled]="!canRecord" (click)="record()">
+        {{ recording ? 'Recording…' : 'Record it' }}
+      </button>
+      <p class="record-hint">
+        You can record against the same collection day more than once, which is what makes
+        a part payment possible.
+      </p>
+
+      <div class="done" *ngIf="recorded as done" role="status">
+        <div class="done-head">
+          {{ done.replayed ? 'Already recorded' : 'Recorded' }} for {{ dayWords(done.collectionDate) }}
+        </div>
+        <p class="done-line" *ngIf="done.replayed">
+          This settlement was already on file, so nothing was written again. These are the
+          original figures.
+        </p>
+        <div class="done-row">
+          <span>Settled</span><span class="mono">₹{{ done.settledAmount | number: '1.2-2' }}</span>
+        </div>
+        <div class="done-row">
+          <span>Into</span><span class="mono">{{ done.bankAccountCode }}</span>
+        </div>
+        <div class="done-row">
+          <span>Still to come for this date</span>
+          <span class="mono">₹{{ done.residualAmount | number: '1.2-2' }}</span>
+        </div>
+        <p class="done-line">Recorded as settlement {{ done.sequence }}.</p>
+      </div>
+    </section>
+  </div>
+
+</div>

@@ -6,6 +6,7 @@ import { SectionPlaceholderComponent } from '../shared/section-placeholder/secti
 import { AccountsShellComponent } from './accounts-shell/accounts-shell.component';
 import { CloseComponent } from './close/close.component';
 import { DaySummaryComponent } from './day-summary/day-summary.component';
+import { UpiComponent } from './upi/upi.component';
 
 /** Artboards 9-10, plus the three screens of FRD §9 that are not drawn yet. */
 const routes: Routes = [
@@ -18,20 +19,10 @@ const routes: Routes = [
       // rather than kept beside the built half. The screen is artboard 9 whole — the count,
       // the difference, the four reasons, the sweep and closing the day.
       { path: 'close', component: CloseComponent },
-      {
-        path: 'upi',
-        component: SectionPlaceholderComponent,
-        data: {
-          copy: {
-            title: 'UPI settlement',
-            note: 'Artboard 10. Settle what arrived, not what was expected. Nothing is ever written off automatically.',
-            slated: [
-              'Collection days waiting to be settled, and what the bank statement shows',
-              'Recording twice against one collection day, which has to stay allowed'
-            ]
-          }
-        }
-      },
+      // ⚠ No `copy` any more, for the same reason `close` carries none: the placeholder
+      // this route stood for is gone, replaced rather than kept beside it. Endpoints 5
+      // and 6 of §1.2 — what is still in transit, and recording what the bank credited.
+      { path: 'upi', component: UpiComponent },
       {
         path: 'expenses',
         component: SectionPlaceholderComponent,
@@ -71,6 +62,6 @@ const routes: Routes = [
 
 @NgModule({
   imports: [SectionChromeModule, FormsModule, RouterModule.forChild(routes)],
-  declarations: [AccountsShellComponent, CloseComponent, DaySummaryComponent]
+  declarations: [AccountsShellComponent, CloseComponent, DaySummaryComponent, UpiComponent]
 })
 export class AccountsModule {}

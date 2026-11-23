@@ -1,0 +1,355 @@
+// Artboard 13, whole, plus artboard 12's right-hand panel only. Styled the same way as
+// `upi.component.scss` and `close.component.scss` — each screen keeps its own copy of the
+// card/field/btn scaffolding rather than sharing a stylesheet nothing else needs.
+@use '../../shared/tokens' as t;
+
+$amber-bg:     #FFF3DF;
+$amber-border: #E3A857;
+$amber-ink:    #6E3C00;
+
+$ok-bg:     #F2F7F4;
+$ok-border: #CBE2D5;
+$ok-ink:    t.$badge-ok;
+
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  font-family: t.$sans;
+  color: t.$ink;
+}
+
+.mono { font-family: t.$mono; }
+
+.loading,
+.fault {
+  margin: 0;
+  font-size: 13px;
+  color: t.$ink-muted;
+}
+
+.fault {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 13px;
+  border-radius: 4px;
+  background: $amber-bg;
+  border: 1px solid $amber-border;
+  color: $amber-ink;
+}
+
+.transfers {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+// -- A block is one voucher type: a heading, then form-and-record side by side ----------
+
+.block {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.block-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.block-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.block-sub {
+  font-size: 13px;
+  color: t.$ink-muted;
+}
+
+.layout {
+  display: flex;
+  gap: 22px;
+  align-items: stretch;
+}
+
+.col {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.col-form {
+  width: 700px;
+  flex-shrink: 0;
+}
+
+.col-record {
+  flex-grow: 1;
+  max-width: 420px;
+}
+
+.col-filler { flex-grow: 1; }
+
+@media (max-width: 1180px) {
+  .layout { flex-direction: column; }
+  .col-form,
+  .col-record { width: auto; max-width: none; }
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 22px;
+  background: t.$surface;
+  border: 1px solid t.$border;
+  border-radius: 6px;
+}
+
+.card-note { gap: 8px; }
+
+.note-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.note-line {
+  margin: 0;
+  font-size: 12px;
+  color: t.$ink-muted;
+}
+
+.record-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.card-record {
+  flex-grow: 1;
+}
+
+// -- Pickers --------------------------------------------------------------------------
+
+.pickers {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+}
+
+.arrow {
+  flex-shrink: 0;
+  padding-bottom: 13px;
+  color: t.$ink-muted;
+  display: flex;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  flex: 1;
+}
+
+.field label,
+.field-label-plain {
+  font-size: 12px;
+  font-weight: 600;
+  color: t.$ink-muted;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+select,
+input[type='text'],
+input[type='date'] {
+  height: 46px;
+  box-sizing: border-box;
+  padding: 0 13px;
+  border: 1px solid t.$border;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 14px;
+  background: t.$surface;
+  color: t.$ink;
+}
+
+select {
+  font-weight: 600;
+}
+
+.field-hint {
+  margin: 0;
+  font-size: 11px;
+  color: t.$ink-muted;
+}
+
+.field-hint-bad { color: #8A1C16; }
+
+.amount-field {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.amount-rupee {
+  font-size: 24px;
+  color: t.$ink-muted;
+}
+
+.amount-input {
+  flex-grow: 1;
+  width: 0;
+  min-width: 0;
+  height: 52px;
+  box-sizing: border-box;
+  padding: 0 14px;
+  border: 2px solid t.$primary;
+  border-radius: 4px;
+  font-size: 26px;
+  font-weight: 600;
+  text-align: right;
+  background: t.$surface;
+  color: t.$ink;
+}
+
+// -- "Paid from" chip buttons ------------------------------------------------------------
+
+.choice-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.choice {
+  flex: 1;
+  min-width: 120px;
+  height: 42px;
+  border-radius: 4px;
+  border: 1px solid t.$border;
+  background: t.$surface;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: t.$ink;
+  cursor: pointer;
+}
+
+.choice-on {
+  border: 2px solid t.$primary;
+  background: t.$primary-tint;
+  color: t.$primary-dark;
+  font-weight: 600;
+}
+
+// -- What gets recorded -----------------------------------------------------------------
+
+.goes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.goes-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+
+  span:first-child { color: t.$ink-muted; }
+  span:last-child { font-weight: 600; }
+}
+
+.goes-total {
+  border-top: 1px solid t.$border-light;
+  padding-top: 8px;
+}
+
+.goes-hint {
+  margin: 2px 0 0;
+  font-size: 11px;
+  color: t.$ink-muted;
+}
+
+.submit-hint {
+  margin: 0;
+  font-size: 11px;
+  color: t.$ink-muted;
+  text-align: center;
+}
+
+.done {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 5px;
+  background: $ok-bg;
+  border: 1px solid $ok-border;
+}
+
+.done-head {
+  font-size: 14px;
+  font-weight: 600;
+  color: $ok-ink;
+}
+
+.done-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+  color: t.$ink-muted;
+}
+
+.done-line {
+  margin: 0;
+  font-size: 12px;
+  color: t.$ink-muted;
+}
+
+// -- Buttons ------------------------------------------------------------------
+
+.btn {
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 4px;
+  border: 1px solid t.$border;
+  background: t.$surface;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: t.$ink;
+  cursor: pointer;
+
+  &:disabled {
+    cursor: not-allowed;
+    color: t.$ink-faint;
+    background: t.$surface-sunk;
+  }
+}
+
+.btn-small {
+  min-height: 30px;
+  padding: 4px 12px;
+  font-size: 12px;
+}
+
+.btn-primary {
+  min-height: 54px;
+  border: none;
+  background: t.$primary;
+  color: #FFFFFF;
+  font-size: 17px;
+
+  &:disabled {
+    background: #AEB7C7;
+    color: #FFFFFF;
+  }
+}

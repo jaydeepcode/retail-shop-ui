@@ -6,9 +6,10 @@ import { SectionPlaceholderComponent } from '../shared/section-placeholder/secti
 import { AccountsShellComponent } from './accounts-shell/accounts-shell.component';
 import { CloseComponent } from './close/close.component';
 import { DaySummaryComponent } from './day-summary/day-summary.component';
+import { TransfersComponent } from './transfers/transfers.component';
 import { UpiComponent } from './upi/upi.component';
 
-/** Artboards 9-10, plus the three screens of FRD §9 that are not drawn yet. */
+/** Artboards 9, 10, 12 (right-hand panel) and 13, plus the two screens of FRD §9 not drawn yet. */
 const routes: Routes = [
   {
     path: '',
@@ -34,17 +35,12 @@ const routes: Routes = [
           }
         }
       },
-      {
-        path: 'transfers',
-        component: SectionPlaceholderComponent,
-        data: {
-          copy: {
-            title: 'Move money',
-            note: 'The contra transfers of FRD §9. Not drawn in v10.',
-            slated: ['Moving cash between a drawer, the safe and a bank account', 'The ₹5 IMPS fee, kept out of a wallet’s cost']
-          }
-        }
-      },
+      // ⚠ No `copy` any more, for the same reason `close` and `upi` carry none: the
+      // placeholder this route stood for is gone, replaced rather than kept beside it.
+      // Endpoint 8 (artboard 13, whole) and endpoint 19's capture form only (artboard 12's
+      // right-hand panel) — the wallet-versus-portal check on artboard 12's left is
+      // endpoint 4 and a separate session's work.
+      { path: 'transfers', component: TransfersComponent },
       {
         path: 'reports',
         component: SectionPlaceholderComponent,
@@ -62,6 +58,6 @@ const routes: Routes = [
 
 @NgModule({
   imports: [SectionChromeModule, FormsModule, RouterModule.forChild(routes)],
-  declarations: [AccountsShellComponent, CloseComponent, DaySummaryComponent, UpiComponent]
+  declarations: [AccountsShellComponent, CloseComponent, DaySummaryComponent, TransfersComponent, UpiComponent]
 })
 export class AccountsModule {}

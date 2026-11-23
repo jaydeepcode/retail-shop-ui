@@ -3,36 +3,40 @@ import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import {
+  AccountResponse,
   ClosePreviewResponse,
+  ContraRequest,
   PoolCloseRequest,
   PoolCloseResponse,
+  PurchaseRequest,
   ReconciliationRequest,
   ReconciliationResponse,
   SharedConfigResponse,
   UpiPendingResponse,
   UpiSettlementRequest,
-  UpiSettlementResponse
+  UpiSettlementResponse,
+  VoucherResponse
 } from '../model/accounts.models';
 
 /**
- * `AccountsController`'s endpoints 1-6, all under `/accounts`, plus the shared
- * `GET /config`.
+ * `AccountsController`'s endpoints 1-6 and 12, all under `/accounts`, the shared
+ * `GET /config`, and `VoucherController`'s endpoints 8 and 19, under `/vouchers`.
  *
  * ⚠ **Endpoints 2 and 4 (the close) take no `Idempotency-Key`**, so this service sets no
  * header for either and the close screen does not mint a key — a close carries its own
  * identity, the key is derived server-side and `uk_recon_account_date` enforces it.
- * **Endpoint 6 is the opposite case**: A4 allows several settlements against one
- * collection date on purpose, so the server cannot tell a double-click from a second real
- * credit, and the client-generated key is what the UPI tab mints with
- * `newIdempotencyKey`. Endpoints 7, 8, 9 and 19 — `expenses` and `transfers` — need the
- * same generator and are still absent here.
+ * **Endpoints 6, 8 and 19 are the opposite case**: only the client can tell a retry from a
+ * second real bill or a second real credit, so each mints its own key with
+ * `newIdempotencyKey`. Endpoints 7 and 9 — `expenses` — need the same generator and are
+ * still absent here.
  *
- * ⚠ Endpoints 7-9, 12 and 19 are deliberately absent. They are being built in parallel and
- * a method here that answers 404 would read as a wired screen.
+ * ⚠ Endpoints 7 and 9 are deliberately absent. They are being built in parallel and a
+ * method here that answers 404 would read as a wired screen.
  */
 @Injectable({ providedIn: 'root' })
 export class AccountsApiService {
   private readonly base = `${environment.apiUrl}/accounts`;
+  private readonly vouchersBase = `${environment.apiUrl}/vouchers`;
 
   constructor(private http: HttpClient) {}
 
@@ -104,6 +108,41 @@ export class AccountsApiService {
       { headers: { 'Idempotency-Key': idempotencyKey } }
     );
   }
+
+  /**
+   * #12. The picker list, active accounts with type, business, pool and `ALLOW_MANUAL`.
+   *
+   * No parameters: both of the transfers tab's pickers filter the same full list
+   * client-side, rather than asking the server twice for two different slices of it.
+   */
+  accounts(): Observable<AccountResponse[]> {
+    return this.http.get<AccountResponse[]>(this.base);
+  }
+
+  /**
+   * #8. A transfer between the shop's own accounts — never touching P&L.
+   *
+   * ⚠ Takes a client-generated `Idempotency-Key`, same as #19 below. A `409` carries the
+   * original voucher rather than a bare error — see {@link asReplayedVoucher}.
+   */
+  postContra(request: ContraRequest, idempotencyKey: string): Observable<VoucherResponse> {
+    return this.http.post<VoucherResponse>(`${this.vouchersBase}/contras`, request, {
+      headers: { 'Idempotency-Key': idempotencyKey }
+    });
+  }
+
+  /**
+   * #19. A float top-up: the float up, the transfer fee as its own expense, the paying
+   * account down by the two together.
+   *
+   * ⚠ Takes a client-generated `Idempotency-Key`, same as #8 above. A `409` carries the
+   * original voucher rather than a bare error — see {@link asReplayedVoucher}.
+   */
+  postPurchase(request: PurchaseRequest, idempotencyKey: string): Observable<VoucherResponse> {
+    return this.http.post<VoucherResponse>(`${this.vouchersBase}/purchases`, request, {
+      headers: { 'Idempotency-Key': idempotencyKey }
+    });
+  }
 }
 
 /**
@@ -147,4 +186,21 @@ export function asReplayedAccountClose(error: unknown): ReconciliationResponse |
   }
   const body = error.error as ReconciliationResponse | null;
   return body && typeof body === 'object' && typeof body.reconId === 'number' ? body : null;
+}
+
+/**
+ * The voucher a 409 names, or `null` when this is not one.
+ *
+ * ⚠ `VoucherController.created`'s own javadoc draws the distinction this exists for: an
+ * AUTOMATIC posting treats a replay as success, while this is a USER-INITIATED action, so
+ * a double-click answers 409 carrying the voucher that already exists rather than 200 —
+ * "somebody has pressed a button twice and should be told." Shared by #8 and #19, both of
+ * which answer with the same `VoucherResponse` shape.
+ */
+export function asReplayedVoucher(error: unknown): VoucherResponse | null {
+  if (!(error instanceof HttpErrorResponse) || error.status !== 409) {
+    return null;
+  }
+  const body = error.error as VoucherResponse | null;
+  return body && typeof body === 'object' && typeof body.voucherId === 'number' ? body : null;
 }

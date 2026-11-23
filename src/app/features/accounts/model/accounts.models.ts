@@ -1,7 +1,8 @@
 /**
  * The wire shapes of `AccountsController` — endpoints 1-4 of `design-ledger-api.md` §1.1,
- * plus 5 and 6 (§1.2, the UPI settlement tab) below. Endpoints 7-9, 12 and 19 are being
- * built in parallel and have nothing here yet.
+ * plus 5, 6 and 12 (§1.2, the UPI settlement tab, and the account picker) below — and of
+ * `VoucherController`'s endpoints 8 and 19 (§1.3, the transfers tab). Endpoints 7 and 9
+ * have nothing here yet.
  *
  * Mirrors `accounting/model/{request,response}/*.java` field for field.
  */
@@ -265,6 +266,122 @@ export interface UpiSettlementResponse {
 }
 
 // ---------------------------------------------------------------------------
+// Endpoint 12 — GET /accounts
+// ---------------------------------------------------------------------------
+
+/**
+ * One account on the picker list (`AccountResponse.java`).
+ *
+ * ⚠ **Both account pickers on the transfers tab come from this, never a hardcoded list.**
+ * The server additionally checks `IS_ACTIVE` on every write, so this list is labels only —
+ * see `FUNDING_ACCOUNTS`'s own two-list drift in `next-session-s5.md`, "smaller things".
+ *
+ * ⚠ `allowManual` is shipped rather than applied: a client that can see the flag can grey
+ * an account out and say why, instead of offering it and collecting a 422 (A7).
+ * `floatPattern` non-null is what MAKES an account a float — there is no `isFloat` column.
+ */
+export interface AccountResponse {
+  accountCode: string;
+  displayName: string;
+  accountType: string;
+  businessCode: string;
+  reportGroup: string;
+  cashPool: string | null;
+  isPoolPrimary: boolean;
+  allowManual: boolean;
+  requiresParty: boolean;
+  reconcilable: boolean;
+  floatPattern: string | null;
+  sortOrder: number;
+}
+
+// ---------------------------------------------------------------------------
+// Endpoint 8 — POST /vouchers/contras
+// ---------------------------------------------------------------------------
+
+/**
+ * Money between the shop's own accounts (`ContraRequest.java`, design-ledger.md E20) — the
+ * safe to the bank, and the manual sweep this screen never types.
+ *
+ * Two legs and never a third: `Dr toAccountCode / Cr fromAccountCode`, `AFFECTS_PL = FALSE`
+ * — a contra never reaches profit or loss, which is why the panel states ₹0.00 rather than
+ * leaving it implied.
+ */
+export interface ContraRequest {
+  voucherDate: string;
+  fromAccountCode: string;
+  toAccountCode: string;
+  amount: number;
+  narration?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Endpoint 19 — POST /vouchers/purchases
+// ---------------------------------------------------------------------------
+
+/**
+ * A float top-up (`PurchaseRequest.java`, design-ledger.md E6/E7, log §2.5). Three legs:
+ * the float up by `amount`, `EXP_BANK_CHARGES` up by `transferFee`, the paying account down
+ * by the two together.
+ *
+ * ⚠ **The fee is never folded into `amount`.** It is charged for the transfer method, not
+ * the balance, and folding it would push the float's cost/face ratio off exactly 1.0 — the
+ * only independent check the design has on float.
+ *
+ * ⚠ **Send `transferFee: 0` for a cash top-up**, never omit the field. No IMPS fee arises
+ * paying from the safe, and a zero leg is illegal (`ck_line_nonzero`) — the server reads a
+ * `0` as "omit the fee leg", not as "post it at 0.00".
+ */
+export interface PurchaseRequest {
+  voucherDate: string;
+  floatAccountCode: string;
+  amount: number;
+  sourceAccountCode: string;
+  /** Omitted means the server default, `rc_setting['float.imps.fee']` (`floatImpsFee`). */
+  transferFee?: number;
+  costPaid?: number;
+  externalRef?: string;
+  narration?: string;
+}
+
+// ---------------------------------------------------------------------------
+// The shared voucher response — endpoints 7, 8, 9 and 19
+// ---------------------------------------------------------------------------
+
+/**
+ * @param dr one of these two is positive and the other `0.00`, never both and never
+ *           neither (`ck_line_oneside`, `ck_line_nonzero`)
+ */
+export interface VoucherLeg {
+  lineNo: number;
+  accountCode: string;
+  dr: number;
+  cr: number;
+  partyCustId: number | null;
+  paymentMethod: string | null;
+  lineNarration: string | null;
+}
+
+/**
+ * One voucher with its legs — the body of a `201`, and of the **409** a replay returns
+ * (`VoucherController.created`'s own javadoc). A 409 here is not an error: somebody pressed
+ * the button twice and the body is the voucher that already exists.
+ */
+export interface VoucherResponse {
+  voucherId: number;
+  voucherType: string;
+  voucherDate: string;
+  voucherDttm: string;
+  narration: string | null;
+  sourceType: string | null;
+  sourceRef: string | null;
+  reversesVoucherId: number | null;
+  sealedAt: string | null;
+  legs: VoucherLeg[];
+  replayed: boolean;
+}
+
+// ---------------------------------------------------------------------------
 // GET /config
 // ---------------------------------------------------------------------------
 
@@ -272,15 +389,17 @@ export interface UpiSettlementResponse {
  * The shared settings endpoint — `rc_setting` read through `SettingService`, beside
  * `/recharge/config` rather than inside it (`next-session-s5.md`, item 3).
  *
- * Only the field this screen reads is declared. The name follows
- * `CounterConfigResponse.java:18`, which is the same setting on the same wire.
+ * Only the fields a screen in this module reads are declared. The names follow
+ * `ShopConfigResponse.java`, which is the same settings on the same wire.
  *
- * ⚠ **`change.display.threshold` is read here and never written as a literal.** There are
- * already two hardcoded `5`s in this codebase — `TicketResponseMapper.java` and
- * `tickets/booking/booking.component.ts:94` — and both carry a comment apologising for
- * themselves. A third is not acceptable (§14.5, and `shop-web/CLAUDE.md`).
+ * ⚠ **Neither figure is ever written as a literal.** There are already two hardcoded `5`s
+ * in this codebase — `TicketResponseMapper.java` and `tickets/booking/booking.component.ts`
+ * — and both carry a comment apologising for themselves. A third is not acceptable (§14.5,
+ * and `shop-web/CLAUDE.md`).
  */
 export interface SharedConfigResponse {
   /** `rc_setting['change.display.threshold']`, in rupees. */
   changeDisplayThreshold: number;
+  /** `rc_setting['float.imps.fee']`, in rupees — endpoint 19's `transferFee` default. */
+  floatImpsFee: number;
 }

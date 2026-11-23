@@ -1,0 +1,278 @@
+<!--
+  Endpoint 8 (artboard 13, whole) and endpoint 19's capture form only (artboard 12's
+  right-hand "Recording the top-up" panel — the wallet-versus-portal check on its left is
+  endpoint 4 and out of scope here).
+-->
+
+<p *ngIf="loadError" class="fault" role="alert">
+  {{ loadError }}
+  <button type="button" class="btn btn-small" (click)="load()">Try again</button>
+</p>
+
+<p *ngIf="loading" class="loading">Reading the accounts…</p>
+
+<div *ngIf="!loading && !loadError" class="transfers">
+
+  <!-- ====================================================================== -->
+  <!-- Move money between your own accounts — endpoint 8                      -->
+  <!-- ====================================================================== -->
+  <section class="block" aria-labelledby="contra-heading">
+    <header class="block-head">
+      <h2 id="contra-heading" class="block-title">Move money between your own accounts</h2>
+      <span class="block-sub">a relocation, not a sale — nothing here is income or expense</span>
+    </header>
+
+    <div class="layout">
+      <div class="col col-form">
+        <section class="card">
+          <div class="pickers">
+            <div class="field">
+              <label for="contra-from">Out of</label>
+              <select id="contra-from" [(ngModel)]="contraFrom" (ngModelChange)="onContraFromChanged()">
+                <option *ngFor="let a of contraAccounts; trackBy: trackByCode" [value]="a.accountCode">
+                  {{ a.displayName }}
+                </option>
+              </select>
+            </div>
+            <span class="arrow" aria-hidden="true">
+              <svg width="26" height="14" viewBox="0 0 26 14"><path d="M1 7h22M18 2l5 5-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            <div class="field">
+              <label for="contra-to">Into</label>
+              <select id="contra-to" [(ngModel)]="contraTo" (ngModelChange)="onContraFieldChanged()">
+                <option *ngFor="let a of contraToOptions; trackBy: trackByCode" [value]="a.accountCode">
+                  {{ a.displayName }}
+                </option>
+              </select>
+            </div>
+          </div>
+          <p class="field-hint field-hint-bad" *ngIf="contraSameAccount" role="alert">
+            Out of and into cannot be the same account.
+          </p>
+
+          <div class="field">
+            <label for="contra-amount">How much</label>
+            <div class="amount-field">
+              <span class="mono amount-rupee" aria-hidden="true">₹</span>
+              <input id="contra-amount" type="text" inputmode="decimal" class="mono amount-input"
+                     autocomplete="off" [(ngModel)]="contraAmountInput" (ngModelChange)="onContraFieldChanged()">
+            </div>
+            <p class="field-hint" *ngIf="!contraAmountIsUnreadable">
+              One figure, one direction — the same account cannot be both ends.
+            </p>
+            <p class="field-hint field-hint-bad" *ngIf="contraAmountIsUnreadable" role="alert">
+              Type a figure in rupees — digits, with at most two decimals.
+            </p>
+          </div>
+
+          <div class="field">
+            <label for="contra-date">Date it</label>
+            <input id="contra-date" type="date" [(ngModel)]="contraDateInput" (ngModelChange)="onContraFieldChanged()">
+            <p class="field-hint" *ngIf="!contraDateInFuture">
+              The day the money actually moved, which is the day this gets sealed by.
+            </p>
+            <p class="field-hint field-hint-bad" *ngIf="contraDateInFuture" role="alert">
+              The day the money moved — not ahead of it.
+            </p>
+          </div>
+
+          <div class="field">
+            <label for="contra-why">Anything to add</label>
+            <input id="contra-why" type="text" autocomplete="off" [(ngModel)]="contraNarration">
+          </div>
+        </section>
+
+        <section class="card card-note">
+          <p class="note-title">Five accounts are missing from those two lists, on purpose</p>
+          <p class="note-line">
+            UPI Clearing and the four wallets are machine-owned — each is reconciled by the
+            screen that owns it, the UPI tab and the top-up below, so a leg typed here would
+            contradict a record something else is responsible for.
+          </p>
+          <p class="note-line">
+            The two tills are missing for the opposite reason: a hand-typed transfer against
+            one almost always duplicates the nightly automatic sweep. Nothing is blocked —
+            this screen just does not offer them.
+          </p>
+        </section>
+      </div>
+
+      <div class="col col-record">
+        <section class="card card-record">
+          <h3 class="record-title">What gets recorded</h3>
+
+          <div class="goes">
+            <div class="goes-row" *ngIf="contraTo">
+              <span>Into {{ accountName(contraTo) }}</span>
+              <span class="mono">+₹{{ (contraAmount ?? 0) | number: '1.2-2' }}</span>
+            </div>
+            <div class="goes-row" *ngIf="contraFrom">
+              <span>Out of {{ accountName(contraFrom) }}</span>
+              <span class="mono">&minus;₹{{ (contraAmount ?? 0) | number: '1.2-2' }}</span>
+            </div>
+            <div class="goes-row goes-total">
+              <span>Reaching profit or loss</span>
+              <span class="mono">₹0.00</span>
+            </div>
+            <p class="goes-hint">
+              Two lines, never a third. Moving the shop's own money makes it no richer or
+              poorer, so this kind of entry is left out of the profit figure entirely rather
+              than cancelling itself out inside it.
+            </p>
+          </div>
+
+          <div class="col-filler"></div>
+
+          <p class="fault" *ngIf="contraError" role="alert">{{ contraError }}</p>
+
+          <button type="button" class="btn btn-primary" [disabled]="!canSubmitContra" (click)="submitContra()">
+            {{ contraSubmitting ? 'Recording…' : 'Record the transfer' }}
+          </button>
+          <p class="submit-hint">
+            Pressing this twice does not move the money twice — a repeat of the same press
+            is recognised and the first entry is returned.
+          </p>
+
+          <div class="done" *ngIf="contraResult as done" role="status">
+            <div class="done-head">
+              {{ contraResultWasReplay ? 'Already recorded' : 'Recorded' }} — voucher {{ done.voucherId }}
+            </div>
+            <p class="done-line" *ngIf="contraResultWasReplay">
+              This transfer was already on file, so nothing was written again. These are the
+              original figures.
+            </p>
+            <div class="done-row" *ngFor="let leg of done.legs">
+              <span>{{ leg.accountCode }}</span>
+              <span class="mono">
+                {{ leg.dr > 0 ? '+' : '−' }}₹{{ (leg.dr > 0 ? leg.dr : leg.cr) | number: '1.2-2' }}
+              </span>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====================================================================== -->
+  <!-- Recording a float top-up — endpoint 19                                  -->
+  <!-- ====================================================================== -->
+  <section class="block" aria-labelledby="topup-heading">
+    <header class="block-head">
+      <h2 id="topup-heading" class="block-title">Recording a float top-up</h2>
+      <span class="block-sub">
+        the wallet checked against the portal is a separate screen — this just records the
+        top-up itself
+      </span>
+    </header>
+
+    <div class="layout">
+      <div class="col col-form">
+        <section class="card">
+          <div class="field">
+            <label for="topup-float">Float wallet</label>
+            <select id="topup-float" [(ngModel)]="topupFloatAccount" (ngModelChange)="onTopupFieldChanged()">
+              <option *ngFor="let a of floatAccounts; trackBy: trackByCode" [value]="a.accountCode">
+                {{ a.displayName }}
+              </option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="topup-amount">Amount sent</label>
+            <div class="amount-field">
+              <span class="mono amount-rupee" aria-hidden="true">₹</span>
+              <input id="topup-amount" type="text" inputmode="decimal" class="mono amount-input"
+                     autocomplete="off" [(ngModel)]="topupAmountInput" (ngModelChange)="onTopupFieldChanged()">
+            </div>
+            <p class="field-hint" *ngIf="!topupAmountIsUnreadable">
+              You pay ₹X and the wallet gains exactly ₹X. None of the four gives a bonus, so
+              there is only ever one figure to type.
+            </p>
+            <p class="field-hint field-hint-bad" *ngIf="topupAmountIsUnreadable" role="alert">
+              Type a figure in rupees — digits, with at most two decimals.
+            </p>
+          </div>
+
+          <div class="field">
+            <label for="topup-date">When it was sent</label>
+            <input id="topup-date" type="date" [(ngModel)]="topupDateInput" (ngModelChange)="onTopupFieldChanged()">
+          </div>
+
+          <div class="field">
+            <span class="field-label-plain">Paid from</span>
+            <div class="choice-row" role="group" aria-label="Paid from">
+              <button type="button" class="choice"
+                      *ngFor="let a of paidFromAccounts; trackBy: trackByCode"
+                      [class.choice-on]="topupPaidFrom === a.accountCode"
+                      [attr.aria-pressed]="topupPaidFrom === a.accountCode"
+                      (click)="chooseTopupPaidFrom(a.accountCode)">
+                {{ a.displayName }}
+              </button>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="col col-record">
+        <section class="card card-record">
+          <h3 class="record-title">What gets recorded</h3>
+
+          <div class="goes">
+            <div class="goes-row" *ngIf="topupFloatAccount">
+              <span>{{ accountName(topupFloatAccount) }}</span>
+              <span class="mono">+₹{{ (topupAmount ?? 0) | number: '1.2-2' }}</span>
+            </div>
+            <div class="goes-row">
+              <span>Bank transfer fee</span>
+              <span class="mono" *ngIf="topupFee !== null">+₹{{ topupFee | number: '1.2-2' }}</span>
+              <span class="mono" *ngIf="topupFee === null">—</span>
+            </div>
+            <div class="goes-row goes-total" *ngIf="topupPaidFrom">
+              <span>Out of {{ accountName(topupPaidFrom) }}</span>
+              <span class="mono" *ngIf="topupTotalOut !== null">&minus;₹{{ topupTotalOut | number: '1.2-2' }}</span>
+              <span class="mono" *ngIf="topupTotalOut === null">—</span>
+            </div>
+            <p class="goes-hint" *ngIf="topupIsCash">
+              No IMPS fee arises paying from the safe, so the fee leg is left off entirely
+              rather than posted at ₹0.00.
+            </p>
+            <p class="goes-hint" *ngIf="!topupIsCash">
+              The fee is charged for the transfer method, not the balance, so it stays its
+              own expense rather than being folded into the wallet's cost — which keeps the
+              wallet and the portal directly comparable.
+            </p>
+          </div>
+
+          <div class="col-filler"></div>
+
+          <p class="fault" *ngIf="topupError" role="alert">{{ topupError }}</p>
+
+          <button type="button" class="btn btn-primary" [disabled]="!canSubmitTopup" (click)="submitTopup()">
+            {{ topupSubmitting ? 'Recording…' : 'Record the top-up' }}
+          </button>
+          <p class="submit-hint">
+            Pressing this twice does not top the wallet up twice — a repeat of the same
+            press is recognised and the first entry is returned.
+          </p>
+
+          <div class="done" *ngIf="topupResult as done" role="status">
+            <div class="done-head">
+              {{ topupResultWasReplay ? 'Already recorded' : 'Recorded' }} — voucher {{ done.voucherId }}
+            </div>
+            <p class="done-line" *ngIf="topupResultWasReplay">
+              This top-up was already on file, so nothing was written again. These are the
+              original figures.
+            </p>
+            <div class="done-row" *ngFor="let leg of done.legs">
+              <span>{{ leg.accountCode }}</span>
+              <span class="mono">
+                {{ leg.dr > 0 ? '+' : '−' }}₹{{ (leg.dr > 0 ? leg.dr : leg.cr) | number: '1.2-2' }}
+              </span>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </section>
+
+</div>

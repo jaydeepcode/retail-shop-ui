@@ -296,6 +296,31 @@ export interface AccountResponse {
 }
 
 // ---------------------------------------------------------------------------
+// Endpoint 7 — POST /vouchers/payments
+// ---------------------------------------------------------------------------
+
+/**
+ * An expense: a category and a source account (FRD §6, `PaymentRequest.java`).
+ *
+ * ⚠ **`expenseAccountCode` is always one of the five seeded `EXPENSE`/`ALLOW_MANUAL = TRUE`
+ * accounts, never a made-up code.** The expenses screen's "+ New category" adds a *label*,
+ * not a ledger account — `AccountDirectoryService`'s own javadoc is explicit the chart of
+ * accounts gets no CRUD, ever. A typed label like "Pump repair" always sends
+ * `EXP_SUNDRY_SHOP` here, with the label carried only in `narration` (canvas note ex4,
+ * artboard 14).
+ *
+ * `narration` is required — `@NotBlank` on the server (`PaymentRequest.java`) — unlike the
+ * other voucher requests on this surface, which all take it optionally.
+ */
+export interface PaymentRequest {
+  voucherDate: string;
+  expenseAccountCode: string;
+  sourceAccountCode: string;
+  amount: number;
+  narration: string;
+}
+
+// ---------------------------------------------------------------------------
 // Endpoint 8 — POST /vouchers/contras
 // ---------------------------------------------------------------------------
 

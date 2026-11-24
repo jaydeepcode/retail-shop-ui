@@ -125,9 +125,14 @@ export class UpiComponent implements OnInit, OnDestroy {
     this.recorded = null;
   }
 
-  /** The full pending amount, which is what matches in every case but the rare partial. */
+  /**
+   * The full pending amount, which is what matches in every case but the rare partial.
+   * Left blank when `pendingAmount` is negative — a correcting journal has already settled
+   * more than this date owes (§8.3) — rather than prefilling a figure `parseRupees` can
+   * never read back.
+   */
   private prefillFor(row: UpiPendingDate | null): void {
-    this.amountInput = row ? groupedRupees(row.pendingAmount) : '';
+    this.amountInput = row && row.pendingAmount > 0 ? groupedRupees(row.pendingAmount) : '';
     this.settledOnInput = todayIso();
   }
 

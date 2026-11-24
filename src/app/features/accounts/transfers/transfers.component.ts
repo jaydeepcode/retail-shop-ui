@@ -312,11 +312,6 @@ export class TransfersComponent implements OnInit, OnDestroy {
     return !!this.contraResult?.replayed;
   }
 
-  /** The leg naming this account, for the receipt — one voucher never carries two. */
-  legFor(voucher: VoucherResponse, accountCode: string): VoucherResponse['legs'][number] | null {
-    return voucher.legs.find((l) => l.accountCode === accountCode) ?? null;
-  }
-
   // -- The top-up's figures and validation -----------------------------------
 
   get topupAmount(): number | null {
@@ -350,6 +345,10 @@ export class TransfersComponent implements OnInit, OnDestroy {
     return (paise(amount) + paise(fee)) / 100;
   }
 
+  get topupDateInFuture(): boolean {
+    return !!this.topupDateInput && this.topupDateInput > todayIso();
+  }
+
   onTopupFieldChanged(): void {
     this.topupError = '';
     this.topupResult = null;
@@ -368,6 +367,7 @@ export class TransfersComponent implements OnInit, OnDestroy {
       && this.topupAmount !== null
       && this.topupAmount > 0
       && !!this.topupDateInput
+      && !this.topupDateInFuture
       && this.topupFee !== null
     );
   }

@@ -196,6 +196,12 @@
           <div class="field">
             <label for="topup-date">When it was sent</label>
             <input id="topup-date" type="date" [(ngModel)]="topupDateInput" (ngModelChange)="onTopupFieldChanged()">
+            <p class="field-hint" *ngIf="!topupDateInFuture">
+              The day the money actually moved, which is the day this gets sealed by.
+            </p>
+            <p class="field-hint field-hint-bad" *ngIf="topupDateInFuture" role="alert">
+              The day the money moved — not ahead of it.
+            </p>
           </div>
 
           <div class="field">

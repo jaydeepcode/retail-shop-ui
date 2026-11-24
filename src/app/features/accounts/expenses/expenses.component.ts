@@ -309,14 +309,6 @@ export class ExpensesComponent implements OnInit, OnDestroy {
     return this.selectedSourceCode === CASH_RECHARGE || this.selectedSourceCode === CASH_WATER;
   }
 
-  accountName(code: string): string {
-    return (
-      this.categoryAccounts.find((a) => a.accountCode === code)?.displayName
-      ?? this.sourceAccounts.find((a) => a.accountCode === code)?.displayName
-      ?? code
-    );
-  }
-
   trackByChipKey(_index: number, chip: CategoryChip): string {
     return chip.key;
   }
@@ -359,6 +351,7 @@ export class ExpensesComponent implements OnInit, OnDestroy {
   get canSubmit(): boolean {
     return (
       !this.submitting
+      && !this.addingCategory
       && !!this.selectedCategory
       && !!this.selectedSourceCode
       && this.amount !== null
@@ -416,11 +409,6 @@ export class ExpensesComponent implements OnInit, OnDestroy {
 
   get resultWasReplay(): boolean {
     return !!this.result?.replayed;
-  }
-
-  /** The leg naming this account, for the receipt — one voucher never carries two. */
-  legFor(voucher: VoucherResponse, accountCode: string): VoucherResponse['legs'][number] | null {
-    return voucher.legs.find((l) => l.accountCode === accountCode) ?? null;
   }
 }
 

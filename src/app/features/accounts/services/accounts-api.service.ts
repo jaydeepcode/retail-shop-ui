@@ -6,6 +6,7 @@ import {
   AccountResponse,
   ClosePreviewResponse,
   ContraRequest,
+  PaymentRequest,
   PoolCloseRequest,
   PoolCloseResponse,
   PurchaseRequest,
@@ -20,17 +21,16 @@ import {
 
 /**
  * `AccountsController`'s endpoints 1-6 and 12, all under `/accounts`, the shared
- * `GET /config`, and `VoucherController`'s endpoints 8 and 19, under `/vouchers`.
+ * `GET /config`, and `VoucherController`'s endpoints 7, 8 and 19, under `/vouchers`.
  *
  * ⚠ **Endpoints 2 and 4 (the close) take no `Idempotency-Key`**, so this service sets no
  * header for either and the close screen does not mint a key — a close carries its own
  * identity, the key is derived server-side and `uk_recon_account_date` enforces it.
- * **Endpoints 6, 8 and 19 are the opposite case**: only the client can tell a retry from a
- * second real bill or a second real credit, so each mints its own key with
- * `newIdempotencyKey`. Endpoints 7 and 9 — `expenses` — need the same generator and are
- * still absent here.
+ * **Endpoints 6, 7, 8 and 19 are the opposite case**: only the client can tell a retry from
+ * a second real bill or a second real credit, so each mints its own key with
+ * `newIdempotencyKey`.
  *
- * ⚠ Endpoints 7 and 9 are deliberately absent. They are being built in parallel and a
+ * ⚠ Endpoint 9 — journals — is deliberately absent. It is being built in parallel and a
  * method here that answers 404 would read as a wired screen.
  */
 @Injectable({ providedIn: 'root' })
@@ -112,11 +112,39 @@ export class AccountsApiService {
   /**
    * #12. The picker list, active accounts with type, business, pool and `ALLOW_MANUAL`.
    *
-   * No parameters: both of the transfers tab's pickers filter the same full list
-   * client-side, rather than asking the server twice for two different slices of it.
+   * ⚠ **Two different calling conventions on this surface, both deliberate.** The transfers
+   * tab asks for the whole list once and filters it client-side for both of its pickers.
+   * The expenses tab instead asks the server for each of its two slices directly —
+   * `?manualOnly=true&type=EXPENSE` for the category row, `?manualOnly=true&type=ASSET` for
+   * the source row — because the five expense category codes must never be hardcoded
+   * (§14.5's `FUNDING_ACCOUNTS`-style duplication is exactly what that would repeat).
+   * Called with no `filter` at all, this is the same unfiltered request transfers has
+   * always made.
    */
-  accounts(): Observable<AccountResponse[]> {
-    return this.http.get<AccountResponse[]>(this.base);
+  accounts(filter?: { manualOnly?: boolean; type?: string; business?: string }): Observable<AccountResponse[]> {
+    let params = new HttpParams();
+    if (filter?.manualOnly !== undefined) {
+      params = params.set('manualOnly', String(filter.manualOnly));
+    }
+    if (filter?.type) {
+      params = params.set('type', filter.type);
+    }
+    if (filter?.business) {
+      params = params.set('business', filter.business);
+    }
+    return this.http.get<AccountResponse[]>(this.base, { params });
+  }
+
+  /**
+   * #7. An expense: a category and a source account (FRD §6).
+   *
+   * ⚠ Takes a client-generated `Idempotency-Key`, same as #8 and #19. A `409` carries the
+   * original voucher rather than a bare error — see {@link asReplayedVoucher}.
+   */
+  postPayment(request: PaymentRequest, idempotencyKey: string): Observable<VoucherResponse> {
+    return this.http.post<VoucherResponse>(`${this.vouchersBase}/payments`, request, {
+      headers: { 'Idempotency-Key': idempotencyKey }
+    });
   }
 
   /**

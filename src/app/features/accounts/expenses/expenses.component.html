@@ -1,0 +1,186 @@
+<!--
+  Artboard 14, whole: endpoint 7. Two columns, as drawn: the capture form on the left, what
+  gets recorded on the right.
+-->
+
+<p *ngIf="loadError" class="fault" role="alert">
+  {{ loadError }}
+  <button type="button" class="btn btn-small" (click)="load()">Try again</button>
+</p>
+
+<p *ngIf="loading" class="loading">Reading the accounts…</p>
+
+<div *ngIf="!loading && !loadError" class="expenses">
+
+  <!-- ====================================================================== -->
+  <!-- The capture form                                                        -->
+  <!-- ====================================================================== -->
+  <div class="col col-form">
+
+    <section class="card">
+      <div class="card-head-row">
+        <span class="card-title">What was it for</span>
+        <span class="card-hint-inline">one tap, then the amount</span>
+      </div>
+
+      <div class="chip-block">
+        <div class="chip-row" role="group" aria-label="Category">
+          <button type="button" class="chip"
+                  *ngFor="let chip of categoryChips; trackBy: trackByChipKey"
+                  [class.chip-on]="selectedCategoryKey === chip.key"
+                  [attr.aria-pressed]="selectedCategoryKey === chip.key"
+                  (click)="selectCategory(chip)">
+            <svg *ngIf="selectedCategoryKey === chip.key" class="tick" width="12" height="12" viewBox="0 0 12 12"
+                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                 aria-hidden="true"><path d="M2.5 6.2l2.3 2.3 4.7-5"></path></svg>
+            <span>{{ chip.label }}</span>
+            <span class="chip-suffix" *ngIf="chip.suffix">&middot; {{ chip.suffix }}</span>
+          </button>
+
+          <button type="button" class="chip chip-dashed" *ngIf="!addingCategory" (click)="startAddingCategory()">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" aria-hidden="true"><path d="M6 2v8M2 6h8"></path></svg>
+            <span>New category</span>
+          </button>
+        </div>
+
+        <div class="add-category" *ngIf="addingCategory">
+          <input type="text" autocomplete="off" placeholder="e.g. Pump repair"
+                 [(ngModel)]="newCategoryInput" (keydown.enter)="addCategory()">
+          <button type="button" class="btn btn-small" [disabled]="!canAddCategory" (click)="addCategory()">Add</button>
+          <button type="button" class="btn btn-small btn-plain" (click)="cancelAddingCategory()">Cancel</button>
+        </div>
+
+        <p class="chip-hint">
+          A typed category is a label, not a new account &mdash; it always posts to Sundry &ndash; Shop
+          underneath, with the label carried as this voucher's narration, and it is remembered as a chip
+          so you never retype it.
+        </p>
+      </div>
+
+      <div class="rule"></div>
+
+      <div class="chip-block">
+        <div class="field-label-plain">Where the money left from</div>
+
+        <div class="chip-row" role="group" aria-label="Source">
+          <button type="button" class="chip"
+                  *ngFor="let a of visibleSourceAccounts; trackBy: trackByCode"
+                  [class.chip-on]="selectedSourceCode === a.accountCode"
+                  [attr.aria-pressed]="selectedSourceCode === a.accountCode"
+                  (click)="selectSource(a.accountCode)">
+            <svg *ngIf="selectedSourceCode === a.accountCode" class="tick" width="12" height="12" viewBox="0 0 12 12"
+                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                 aria-hidden="true"><path d="M2.5 6.2l2.3 2.3 4.7-5"></path></svg>
+            <span>{{ a.displayName }}</span>
+          </button>
+
+          <button type="button" class="chip chip-dashed" *ngIf="disclosableSourceAccounts.length"
+                  [attr.aria-expanded]="sourceExpanded" (click)="toggleSourceDisclosure()">
+            <span>Other source</span>
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+                 [style.transform]="sourceExpanded ? 'rotate(180deg)' : 'none'"><path d="M3 4.5l3 3 3-3"></path></svg>
+          </button>
+        </div>
+
+        <div class="chip-row chip-row-disclosed" *ngIf="sourceExpanded && disclosableSourceAccounts.length">
+          <button type="button" class="chip"
+                  *ngFor="let a of disclosableSourceAccounts; trackBy: trackByCode"
+                  (click)="selectSource(a.accountCode)">
+            <span>{{ a.displayName }}</span>
+          </button>
+        </div>
+
+        <p class="chip-hint">
+          The safe and Janata Sahakari are where almost every expense comes from. "Other source" opens
+          the rest &mdash; money spent before it reaches the safe, plus the three family banks. Pick one
+          and it stays as a chip here for this category next time.
+        </p>
+      </div>
+    </section>
+
+    <section class="card card-row">
+      <div class="field field-amount">
+        <label for="amt">How much</label>
+        <div class="amount-field">
+          <span class="mono amount-rupee" aria-hidden="true">₹</span>
+          <input id="amt" type="text" inputmode="decimal" class="mono amount-input"
+                 autocomplete="off" [(ngModel)]="amountInput" (ngModelChange)="onFieldChanged()">
+        </div>
+        <p class="field-hint field-hint-bad" *ngIf="amountIsUnreadable" role="alert">
+          Type a figure in rupees &mdash; digits, with at most two decimals.
+        </p>
+      </div>
+      <div class="field field-date">
+        <label for="when">Dated</label>
+        <input id="when" type="date" [(ngModel)]="dateInput" (ngModelChange)="onFieldChanged()">
+        <p class="field-hint field-hint-bad" *ngIf="dateInFuture" role="alert">
+          An expense is dated when it happened, not ahead of it.
+        </p>
+      </div>
+    </section>
+
+    <section class="card">
+      <label for="narr" class="field-label-plain">What it was</label>
+      <input id="narr" type="text" autocomplete="off" [(ngModel)]="narration" (ngModelChange)="onFieldChanged()">
+      <p class="field-hint">The only record of what this was for &mdash; required, not optional.</p>
+    </section>
+  </div>
+
+  <!-- ====================================================================== -->
+  <!-- What gets recorded                                                      -->
+  <!-- ====================================================================== -->
+  <div class="col col-record">
+    <section class="card card-record">
+      <h3 class="record-title">What gets recorded</h3>
+
+      <div class="goes">
+        <div class="goes-row" *ngIf="selectedCategoryAccount">
+          <span>Into {{ selectedCategoryAccount.displayName }}</span>
+          <span class="mono">+₹{{ (amount ?? 0) | number: '1.2-2' }}</span>
+        </div>
+        <div class="goes-row" *ngIf="selectedSourceAccount">
+          <span>Out of {{ selectedSourceAccount.displayName }}</span>
+          <span class="mono">&minus;₹{{ (amount ?? 0) | number: '1.2-2' }}</span>
+        </div>
+        <p class="goes-hint">Two legs, same as any expense: the category that spent it, the account it left from.</p>
+      </div>
+
+      <div class="rule"></div>
+
+      <div class="till-note" *ngIf="sourceIsATill && selectedSourceAccount">
+        <div class="till-note-title">Paying from {{ selectedSourceAccount.displayName }}</div>
+        <p class="till-note-line">
+          The till holds ₹{{ (amount ?? 0) | number: '1.2-2' }} less from the moment this posts &mdash; so
+          tonight's count of the drawer still matches the books, with nothing to deposit to the safe first.
+        </p>
+      </div>
+
+      <div class="col-filler"></div>
+
+      <p class="fault" *ngIf="submitError" role="alert">{{ submitError }}</p>
+
+      <button type="button" class="btn btn-primary" [disabled]="!canSubmit" (click)="submit()">
+        {{ submitting ? 'Recording…' : 'Record the expense' }}
+      </button>
+      <p class="submit-hint">
+        Pressing this twice does not record it twice &mdash; a repeat of the same press is recognised and
+        the first entry is returned. Two genuine expenses of the same amount on one day are still two
+        entries, because only you can tell those apart.
+      </p>
+
+      <div class="done" *ngIf="result as done" role="status">
+        <div class="done-head">{{ resultWasReplay ? 'Already recorded' : 'Recorded' }} — voucher {{ done.voucherId }}</div>
+        <p class="done-line" *ngIf="resultWasReplay">
+          This expense was already on file, so nothing was written again. These are the original figures.
+        </p>
+        <div class="done-row" *ngFor="let leg of done.legs">
+          <span>{{ leg.accountCode }}</span>
+          <span class="mono">{{ leg.dr > 0 ? '+' : '−' }}₹{{ (leg.dr > 0 ? leg.dr : leg.cr) | number: '1.2-2' }}</span>
+        </div>
+      </div>
+    </section>
+  </div>
+
+</div>

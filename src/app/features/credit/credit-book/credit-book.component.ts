@@ -3,11 +3,15 @@ import { Subject, Subscription, catchError, debounceTime, distinctUntilChanged, 
 import {
   CreditBookRowResponse,
   CreditCustomerResponse,
+  CreditSettlementRequest,
+  CreditSettlementResponse,
   CreditStatementResponse,
   StatementLineResponse
 } from '../../recharge/model/recharge.models';
 import { RechargeApiService } from '../../recharge/services/recharge-api.service';
-import { errorSentence } from '../../recharge/services/recharge-error';
+import { asReplayedCreditSettlement, errorSentence } from '../../recharge/services/recharge-error';
+import { newIdempotencyKey } from '../../shared/idempotency-key';
+import { num } from '../../shared/payment/tender';
 
 /**
  * One row of the list, from either of the two endpoints that can fill it.
@@ -49,12 +53,11 @@ const BOOK_PAGE_SIZE = 100;
  * and the query behind it is subtler than it looks (`CreditBookRepository.java:74-102`:
  * a receipt and a charge in the same second used to make the badge go dark).
  *
- * ⚠ TAKING A PAYMENT IS NOT HERE, and that is a decision rather than an omission. #16 is
- * deferred to S6 with its design settled in `implementation-plan.md` §0.7: a receipt must
- * clear the customer's `AR_*` legs oldest-first, each of which names its own business, and
- * the ledger does not hold legacy debt until the opening balances land (V30/V31). A
- * tally-first version built against these two read endpoints would post water debt to
- * `AR_RECHARGE`. So this screen reads and does not collect, and says so on the screen.
+ * ⚠ TAKING A PAYMENT (#16) ALLOCATES OVER LEDGER LEGS, NOT THIS TALLY. The settle form
+ * below posts to a different read than `creditBook`/`creditStatement` — oldest-first across
+ * the whole cross-business tab, server-side, with no business picker
+ * (`design-ledger.md` §6.3, `implementation-plan.md` §0.7). Its confirmation is built from
+ * the settlement response, never from a refetch of these two endpoints — see `onSettled`.
  *
  * ⚠ THE ONE GAP THIS SCREEN USED TO CARRY IS CLOSED, and how it closed is worth keeping.
  * An advance kept from a refund did not appear here: `KEEP_AS_ADVANCE` posted a ledger leg
@@ -330,6 +333,10 @@ export class CreditBookComponent implements OnInit, OnDestroy {
     // on this screen is someone else's debt shown against their name.
     this.statement = null;
     this.statementError = '';
+    // A settle form or confirmation left open belongs to whoever was selected before.
+    this.settleFormOpen = false;
+    this.settleResult = null;
+    this.settleError = '';
     this.statementProbe.next(row.customerId);
   }
 
@@ -338,6 +345,9 @@ export class CreditBookComponent implements OnInit, OnDestroy {
     this.statement = null;
     this.statementError = '';
     this.statementLoading = false;
+    this.settleFormOpen = false;
+    this.settleResult = null;
+    this.settleError = '';
   }
 
   statementGoToPage(page: number): void {
@@ -354,6 +364,143 @@ export class CreditBookComponent implements OnInit, OnDestroy {
 
   get statementTotalPages(): number {
     return this.statement?.lines.totalPages ?? 0;
+  }
+
+  // -- taking a payment (#16) ------------------------------------------------
+
+  settleFormOpen = false;
+  settleAmountText = '';
+  settleMethod: 'CASH' | 'UPI' = 'CASH';
+  settleReference = '';
+  settleNote = '';
+  settling = false;
+  settleError = '';
+  /**
+   * The settlement just posted, or replayed — the confirmation reads from this, never
+   * from a refetch of the statement. See correction §1 and `onSettled`.
+   */
+  settleResult: CreditSettlementResponse | null = null;
+
+  /**
+   * One key per attempt, kept across a retry of the same amount and method and replaced
+   * whenever either changes before submitting — `idempotency-key.ts`'s own stated rule.
+   */
+  private settleIdempotencyKey = '';
+
+  openSettleForm(): void {
+    this.settleFormOpen = true;
+    this.settleAmountText = '';
+    this.settleMethod = 'CASH';
+    this.settleReference = '';
+    this.settleNote = '';
+    this.settleError = '';
+    this.settleResult = null;
+    this.settleIdempotencyKey = newIdempotencyKey();
+  }
+
+  cancelSettleForm(): void {
+    this.settleFormOpen = false;
+    this.settleError = '';
+  }
+
+  /** CASH or UPI only — the server refuses CREDIT unconditionally. */
+  chooseSettleMethod(method: 'CASH' | 'UPI'): void {
+    if (this.settleMethod === method) {
+      return;
+    }
+    this.settleMethod = method;
+    this.settleReference = '';
+    this.settleError = '';
+    this.settleIdempotencyKey = newIdempotencyKey();
+  }
+
+  onSettleAmountChange(value: string): void {
+    this.settleAmountText = value;
+    this.settleError = '';
+    this.settleIdempotencyKey = newIdempotencyKey();
+  }
+
+  onSettleReferenceChange(value: string): void {
+    this.settleReference = value;
+    this.settleError = '';
+  }
+
+  get settleAmount(): number {
+    return num(this.settleAmountText);
+  }
+
+  get canSubmitSettle(): boolean {
+    if (this.settling || this.settleAmount <= 0) {
+      return false;
+    }
+    return this.settleMethod !== 'UPI' || !!this.settleReference.trim();
+  }
+
+  /**
+   * ⚠ No "exceeds outstanding" check here, and none is coming. A payment bigger than
+   * the debt becomes an advance server-side, silently and on purpose — correction §3 is
+   * explicit that this is not an edge case to flag, so there is nothing to warn about.
+   */
+  submitSettle(): void {
+    if (!this.canSubmitSettle || this.selectedId === null) {
+      return;
+    }
+    this.settling = true;
+    this.settleError = '';
+
+    const request: CreditSettlementRequest = {
+      amount: this.settleAmount,
+      method: this.settleMethod
+    };
+    if (this.settleMethod === 'UPI') {
+      request.reference = this.settleReference.trim();
+    }
+    if (this.settleNote.trim()) {
+      request.note = this.settleNote.trim();
+    }
+
+    const customerId = this.selectedId;
+    this.subscriptions.add(
+      this.api.settleCredit(customerId, request, this.settleIdempotencyKey).subscribe({
+        next: (result) => this.onSettled(result),
+        error: (error) => {
+          this.settling = false;
+          // ⚠ A 409 here is the replay, not a refusal — the same shape a 201 carries.
+          // Not kept as an error: shown exactly as a fresh success would be.
+          const replayed = asReplayedCreditSettlement(error);
+          if (replayed) {
+            this.onSettled(replayed);
+            return;
+          }
+          // ⚠ The key is NOT replaced on a refusal. A 422 may be something the staff
+          // can fix (a missing UPI reference) without the amount or method changing,
+          // and the retry must carry the same key or a timeout-then-fix would double-post.
+          this.settleError = errorSentence(error);
+        }
+      })
+    );
+  }
+
+  /**
+   * ⚠ Builds the confirmation from the settlement response ITSELF, never from a
+   * refetch. Correction §1: a surplus beyond the whole tab posts to `ADV_RECHARGE`,
+   * which #14/#15's tally has no row for — so a refetch here could show "nothing
+   * happened" for a payment that just did.
+   *
+   * The line list IS refreshed, because its rows are the mirrored `AR_*` rows and so
+   * are correct — only the headline figure must not depend on them.
+   */
+  private onSettled(result: CreditSettlementResponse): void {
+    this.settling = false;
+    this.settleFormOpen = false;
+    this.settleResult = result;
+    if (this.selectedId !== null) {
+      this.statementProbe.next(this.selectedId);
+    }
+  }
+
+  dismissSettleResult(): void {
+    this.settleResult = null;
   }
 
   // -- wording --------------------------------------------------------------

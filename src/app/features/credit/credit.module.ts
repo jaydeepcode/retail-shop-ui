@@ -10,11 +10,8 @@ import { CreditShellComponent } from './credit-shell/credit-shell.component';
  * so there is nothing to navigate between. §14.8 is why the tab is per person and not
  * per business — someone owing ₹2,000 on water and ₹49 on recharge must not read as ₹49.
  *
- * ⚠ The placeholder this replaces listed five things. Four are built from #14 and #15.
- * The fifth, taking a payment, is #16 and is NOT built — it is deferred to S6 because a
- * receipt has to clear `AR_*` legs oldest-first and each names its own business, and the
- * legacy balances are not in the ledger until V30/V31. The screen names it rather than
- * leaving a gap where a button should be.
+ * The placeholder this replaced listed five things, four from #14 and #15 and the fifth —
+ * taking a payment — deferred to #16. All five are built now.
  */
 const routes: Routes = [
   {

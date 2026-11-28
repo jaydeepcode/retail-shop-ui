@@ -376,3 +376,82 @@ input {
   font-size: 12px;
   color: t.$ink-muted;
 }
+
+// ------------------------------------------------- taking a payment (#16)
+
+.settle-confirm {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 5px;
+  border: 1px solid t.$badge-ok;
+  background: #eef5f0;
+}
+
+.settle-confirm-figure {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: t.$badge-ok;
+}
+
+.settle-open {
+  align-self: flex-start;
+}
+
+.settle-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 5px;
+  border: 1px solid t.$border-light;
+  background: t.$surface-sunk;
+}
+
+.settle-row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+
+  label,
+  .settle-row-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: t.$ink-muted;
+  }
+
+  // ⚠ Overrides the global `input` rule's `flex: 0 1 300px` — inside this column flex
+  // container that basis is read as a HEIGHT, not a width, which blew these up to 300px
+  // tall. Found by running it.
+  input {
+    flex: none;
+    width: 100%;
+  }
+}
+
+.settle-optional {
+  text-transform: none;
+  font-weight: 400;
+  letter-spacing: normal;
+}
+
+.settle-methods {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+
+  .settle-row-label {
+    margin-right: 2px;
+  }
+}
+
+.settle-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}

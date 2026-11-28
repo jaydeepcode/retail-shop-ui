@@ -1,6 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import {
   CreateCustomerRequestResult,
+  CreditSettlementResponse,
   ErrorCode,
   ErrorResponse,
   ResidualMode
@@ -60,6 +61,25 @@ export function asExistingCustomer(error: unknown): CreateCustomerRequestResult 
   }
   const body = error.error as CreateCustomerRequestResult | null;
   return body && typeof body === 'object' && typeof body.existingCustomerId === 'number'
+    ? body
+    : null;
+}
+
+/**
+ * The settlement a 409 names, or `null` when this is not one.
+ *
+ * ⚠ `RechargeController.settleCreditTab` answers a replay with 409 carrying the same
+ * `CreditSettlementResponse` a fresh `201` would — "somebody pressed the button twice
+ * and should be told", the same shape `accounts-api.service.ts`'s `asReplayedVoucher`
+ * reads for the other write-twice surfaces. Not an error: the confirmation is built
+ * from this body exactly as it would be from a 201.
+ */
+export function asReplayedCreditSettlement(error: unknown): CreditSettlementResponse | null {
+  if (!(error instanceof HttpErrorResponse) || error.status !== 409) {
+    return null;
+  }
+  const body = error.error as CreditSettlementResponse | null;
+  return body && typeof body === 'object' && typeof body.amountReceived === 'number'
     ? body
     : null;
 }

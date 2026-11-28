@@ -53,12 +53,20 @@ describe('RechargeApiService', () => {
     expect((api as unknown as Record<string, unknown>)['voidRecharge']).toBeUndefined();
   });
 
-  /** ⚠ #16 is the one §3.2 endpoint still unbuilt, so it still has no method. */
-  it('exposes no way to take a payment against a tab', () => {
-    const surface = api as unknown as Record<string, unknown>;
-    for (const name of ['settleCredit', 'creditPayment', 'payTab']) {
-      expect(surface[name]).toBeUndefined();
-    }
+  /**
+   * #16, wired now: same `Idempotency-Key` discipline as `settle()`, under the
+   * customer's own path rather than a body field.
+   */
+  it('sends the Idempotency-Key header on a credit settlement', () => {
+    api
+      .settleCredit(4821, { amount: 100, method: 'CASH' }, '9f2b7c1e-4d5a-4b8f-9c3e-1a2b3c4d5e6f')
+      .subscribe();
+    const request = http.expectOne(`${base}/credit/customers/4821/settlements`);
+    expect(request.request.headers.get('Idempotency-Key')).toBe(
+      '9f2b7c1e-4d5a-4b8f-9c3e-1a2b3c4d5e6f'
+    );
+    expect(request.request.body).toEqual({ amount: 100, method: 'CASH' });
+    request.flush({});
   });
 
   it('retries under the original payment, with no idempotency header', () => {

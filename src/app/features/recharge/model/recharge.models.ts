@@ -17,6 +17,7 @@ import type {
   SettlementLineRequest,
   SettlementMethod
 } from '../../shared/payment/payment.models';
+import type { VoucherResponse } from '../../accounts/model/accounts.models';
 
 /** `domain/ServiceType.java` — `ref_recharge_kind`'s two codes. */
 export type ServiceType = 'MOBILE' | 'TV';
@@ -398,6 +399,38 @@ export interface CreditStatementResponse {
   oldestDebtDays: number | null;
   warn: boolean;
   lines: PageResponse<StatementLineResponse>;
+}
+
+/**
+ * `request/CreditSettlementRequest.java` — a payment against a customer's tab (#16).
+ *
+ * `method` is narrower than `SettlementMethod` on purpose: the server refuses `CREDIT`
+ * unconditionally (a tab cannot be paid down with more credit), so this screen never
+ * offers it as a choice rather than offering a button that always 422s.
+ */
+export interface CreditSettlementRequest {
+  amount: number;
+  method: 'CASH' | 'UPI';
+  /** Required when `method` is `'UPI'`. */
+  reference?: string;
+  note?: string;
+}
+
+/**
+ * `response/CreditSettlementResponse.java` — what #16 posted, or the replay of an
+ * earlier call under the same `Idempotency-Key` (the 409 carries this same shape).
+ *
+ * ⚠ `allocations` names the `AR_*`/`ADV_RECHARGE` legs the voucher actually credited —
+ * present for parity with the wire contract, but `recharge-technical-decisions.md` §14.8
+ * is explicit that no screen renders the business split. The confirmation shown to the
+ * staff member is built from `amountReceived`, never from this array.
+ */
+export interface CreditSettlementResponse {
+  customerId: number;
+  amountReceived: number;
+  allocations: { accountCode: string; amount: number }[];
+  voucher: VoucherResponse;
+  replayed: boolean;
 }
 
 /**

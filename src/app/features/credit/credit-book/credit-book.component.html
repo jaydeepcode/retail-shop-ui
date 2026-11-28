@@ -135,19 +135,6 @@
     </ng-container>
 
     <!--
-      ⚠ Named on the screen, not left as a missing button. #16 is deferred to S6 and the
-      reason is a correctness one, not a scheduling one.
-    -->
-    <p class="book-note book-note-gap">
-      <span class="book-note-label">Taking a payment is not here yet</span>
-      <span>A receipt has to come off the oldest debt first, and each of those debts names
-        the business it came from — so taking one against the tally shown here would post
-        water debt against recharge. The legacy balances also are not in the ledger yet. It
-        is built once they are, and until then a payment is recorded the way it is
-        today.</span>
-    </p>
-
-    <!--
       ⚠ A "One thing this book does not see" note stood here until 2026-10-21. It warned
       that money kept on someone's account from a refund was held in the ledger and not on
       the tab these figures read — true, and the reason `KEEP_AS_ADVANCE` was withdrawn
@@ -198,6 +185,67 @@
             Every business on one tab. This is the same figure the counter shows before a
             credit sale, read the same way, so the two cannot disagree.
           </p>
+        </div>
+
+        <!--
+          ⚠ The confirmation reads `settleResult` directly, never a refetch — see the
+          component's `onSettled`. A payment that clears to ADV_RECHARGE has no row in
+          this tab's own tally, so re-reading the statement here could show "nothing
+          happened" for a payment that just went through.
+        -->
+        <div class="settle-confirm" *ngIf="settleResult as done">
+          <p class="settle-confirm-figure">
+            ₹{{ done.amountReceived | number: '1.2-2' }} received<span *ngIf="done.replayed">
+              (already recorded — not taken twice)</span>
+          </p>
+          <button type="button" class="btn btn-small" (click)="dismissSettleResult()">
+            Dismiss
+          </button>
+        </div>
+
+        <button type="button" class="btn btn-small btn-on settle-open"
+                *ngIf="!settleFormOpen && !settleResult" (click)="openSettleForm()">
+          Take a payment
+        </button>
+
+        <!-- One amount, one method, no business picker — see correction §4. -->
+        <div class="settle-form" *ngIf="settleFormOpen">
+          <div class="settle-row">
+            <label for="settle-amount">Amount</label>
+            <input id="settle-amount" type="text" inputmode="decimal" autocomplete="off"
+                   [ngModel]="settleAmountText" (ngModelChange)="onSettleAmountChange($event)">
+          </div>
+
+          <div class="settle-row settle-methods">
+            <span class="settle-row-label">Method</span>
+            <button type="button" class="btn btn-small" [class.btn-on]="settleMethod === 'CASH'"
+                    (click)="chooseSettleMethod('CASH')">Cash</button>
+            <button type="button" class="btn btn-small" [class.btn-on]="settleMethod === 'UPI'"
+                    (click)="chooseSettleMethod('UPI')">UPI</button>
+          </div>
+
+          <div class="settle-row" *ngIf="settleMethod === 'UPI'">
+            <label for="settle-reference">UPI reference</label>
+            <input id="settle-reference" type="text" autocomplete="off"
+                   [ngModel]="settleReference" (ngModelChange)="onSettleReferenceChange($event)">
+          </div>
+
+          <div class="settle-row">
+            <label for="settle-note">Note <span class="settle-optional">(optional)</span></label>
+            <input id="settle-note" type="text" autocomplete="off" [(ngModel)]="settleNote">
+          </div>
+
+          <p *ngIf="settleError" class="book-fault" role="alert">{{ settleError }}</p>
+
+          <div class="settle-actions">
+            <button type="button" class="btn btn-small" (click)="cancelSettleForm()">
+              Cancel
+            </button>
+            <button type="button" class="btn btn-small btn-on" [disabled]="!canSubmitSettle"
+                    (click)="submitSettle()">
+              {{ settling ? 'Taking payment…' : 'Settle' }}
+            </button>
+          </div>
         </div>
 
         <ul class="lines" *ngIf="statementLines.length">

@@ -6,6 +6,7 @@ import { environment } from '../../../../environments/environment';
 import { SectionChromeModule } from '../../shared/section-chrome.module';
 import {
   CreditBookRowResponse,
+  CreditSettlementResponse,
   CreditStatementResponse,
   PageResponse,
   StatementLineResponse
@@ -45,6 +46,31 @@ function statementLine(overrides: Partial<StatementLineResponse> = {}): Statemen
     note: null,
     extendedBy: null,
     paymentId: 5,
+    ...overrides
+  };
+}
+
+function settlementResponse(
+  overrides: Partial<CreditSettlementResponse> = {}
+): CreditSettlementResponse {
+  return {
+    customerId: 4821,
+    amountReceived: 100,
+    allocations: [{ accountCode: 'AR_RECHARGE', amount: 100 }],
+    voucher: {
+      voucherId: 900,
+      voucherType: 'RCPT',
+      voucherDate: '2026-11-28',
+      voucherDttm: '2026-11-28T10:00:00',
+      narration: null,
+      sourceType: 'CREDIT_SETTLEMENT',
+      sourceRef: null,
+      reversesVoucherId: null,
+      sealedAt: '2026-11-28T10:00:00',
+      legs: [],
+      replayed: false
+    },
+    replayed: false,
     ...overrides
   };
 }
@@ -465,9 +491,6 @@ describe('CreditBookComponent', () => {
     const text = fixture.nativeElement.textContent as string;
     expect(text).not.toContain('One thing this book does not see');
     expect(text).not.toContain('the ledger is the one that is right');
-    // ⚠ The note about #16 is a DIFFERENT gap and stays: this screen still reads and does
-    // not collect, until the opening balances make the allocation possible.
-    expect(text).toContain('a payment is recorded the way it is');
   });
 
   /**
@@ -520,20 +543,131 @@ describe('CreditBookComponent', () => {
     expect(book.statementError).toContain('no longer exists');
   });
 
-  // ------------------------------------------------- what is not here
+  // ------------------------------------------------- taking a payment (#16)
+
+  function openStatementAndSettleForm(): void {
+    load([row()]);
+    book.select(book.rows[0]);
+    http.expectOne((r) => r.url === `${base}/credit/customers/4821`).flush(statement());
+    fixture.detectChanges();
+    book.openSettleForm();
+    fixture.detectChanges();
+  }
+
+  /** Correction §4: an amount and a method, nothing else — no business picker. */
+  it('never offers CREDIT as a method on this screen', () => {
+    openStatementAndSettleForm();
+    const labels = Array.from(
+      fixture.nativeElement.querySelectorAll('.settle-form button')
+    ).map((b) => (b as HTMLButtonElement).textContent?.trim());
+    expect(labels).toEqual(['Cash', 'UPI', 'Cancel', 'Settle']);
+  });
+
+  it('will not submit a UPI settlement with no reference, and will once there is one', () => {
+    openStatementAndSettleForm();
+    book.chooseSettleMethod('UPI');
+    book.onSettleAmountChange('100');
+    fixture.detectChanges();
+    expect(book.canSubmitSettle).toBe(false);
+
+    book.onSettleReferenceChange('UPI-REF-1');
+    fixture.detectChanges();
+    expect(book.canSubmitSettle).toBe(true);
+  });
 
   /**
-   * ⚠ #16 is deferred to S6 for a correctness reason, not a scheduling one: a receipt has
-   * to clear `AR_*` legs oldest-first and each names its own business, and the legacy
-   * balances are not in the ledger until V30/V31. Named on the screen so the gap is not
-   * read as an oversight.
+   * ⚠ Correction §1, the one this session exists to get right: the confirmation is built
+   * from the settlement response, not from re-reading #14/#15. A surplus beyond the whole
+   * tab posts to `ADV_RECHARGE`, which the statement's own tally has no row for.
    */
-  it('names taking a payment as not built, and why', () => {
-    load([row()]);
-    const text = fixture.nativeElement.textContent as string;
-    expect(text).toContain('Taking a payment is not here yet');
-    expect(text).toContain('oldest debt first');
-    expect(fixture.nativeElement.querySelector('[data-take-payment]')).toBeNull();
+  it('posts a settlement and confirms from the response, then refreshes the line list', () => {
+    openStatementAndSettleForm();
+    book.onSettleAmountChange('100');
+    book.submitSettle();
+
+    const post = http.expectOne((r) => r.url === `${base}/credit/customers/4821/settlements`);
+    expect(post.request.headers.get('Idempotency-Key')).toBeTruthy();
+    expect(post.request.body).toEqual({ amount: 100, method: 'CASH' });
+    post.flush(settlementResponse({ amountReceived: 100 }), { status: 201, statusText: 'Created' });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('₹100.00 received');
+    // The form is gone, and a refetch of #15 follows — for the line list alone.
+    expect(fixture.nativeElement.querySelector('.settle-form')).toBeNull();
+
+    const refresh = http.expectOne((r) => r.url === `${base}/credit/customers/4821`);
+    refresh.flush(statement());
+    fixture.detectChanges();
+    // The confirmation is unaffected by the refetch landing.
+    expect(fixture.nativeElement.textContent).toContain('₹100.00 received');
+  });
+
+  /** `RechargeController.settleCreditTab`: a replay answers 409 with the same shape. */
+  it('shows the same confirmation for a replay as for a fresh post', () => {
+    openStatementAndSettleForm();
+    book.onSettleAmountChange('100');
+    book.submitSettle();
+
+    http.expectOne((r) => r.url === `${base}/credit/customers/4821/settlements`).flush(
+      settlementResponse({ amountReceived: 100, replayed: true }),
+      { status: 409, statusText: 'Conflict' }
+    );
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('₹100.00 received');
+    expect(fixture.nativeElement.textContent).toContain('already recorded');
+  });
+
+  /** scope item 5: the server's own sentence, never a client-invented one. */
+  it('surfaces a 422 via errorSentence rather than wording its own', () => {
+    openStatementAndSettleForm();
+    book.onSettleAmountChange('100');
+    book.submitSettle();
+
+    http.expectOne((r) => r.url === `${base}/credit/customers/4821/settlements`).flush(
+      { code: 'SOME_LEDGER_REFUSAL', message: 'That amount cannot be posted.' },
+      { status: 422, statusText: 'Unprocessable Entity' }
+    );
+    fixture.detectChanges();
+
+    expect(book.settleError).toBe('That amount cannot be posted.');
+    expect(fixture.nativeElement.textContent).toContain('That amount cannot be posted.');
+  });
+
+  /**
+   * `idempotency-key.ts`'s own rule: the same key survives a retry of the same amount,
+   * and changes the moment the amount is edited before the next attempt.
+   */
+  it('keeps the idempotency key across a retry, and replaces it when the amount changes', () => {
+    openStatementAndSettleForm();
+    book.onSettleAmountChange('100');
+    book.submitSettle();
+
+    const first = http.expectOne((r) => r.url === `${base}/credit/customers/4821/settlements`);
+    const firstKey = first.request.headers.get('Idempotency-Key');
+    first.flush(
+      { code: 'SOME_LEDGER_REFUSAL', message: 'Try again.' },
+      { status: 422, statusText: 'Unprocessable Entity' }
+    );
+    fixture.detectChanges();
+
+    book.submitSettle();
+    const retry = http.expectOne((r) => r.url === `${base}/credit/customers/4821/settlements`);
+    expect(retry.request.headers.get('Idempotency-Key')).toBe(firstKey);
+    retry.flush(
+      { code: 'SOME_LEDGER_REFUSAL', message: 'Try again.' },
+      { status: 422, statusText: 'Unprocessable Entity' }
+    );
+    fixture.detectChanges();
+
+    book.onSettleAmountChange('150');
+    book.submitSettle();
+    const afterEdit = http.expectOne((r) => r.url === `${base}/credit/customers/4821/settlements`);
+    expect(afterEdit.request.headers.get('Idempotency-Key')).not.toBe(firstKey);
+    afterEdit.flush(settlementResponse({ amountReceived: 150 }), {
+      status: 201,
+      statusText: 'Created'
+    });
   });
 
   /** The cross-business rule is the whole reason the panel exists; it says so. */

@@ -7,6 +7,8 @@ import {
   CreateCustomerRequest,
   CreditBookRowResponse,
   CreditCustomerResponse,
+  CreditSettlementRequest,
+  CreditSettlementResponse,
   CreditStatementResponse,
   DaySummaryResponse,
   HistoryPageResponse,
@@ -34,12 +36,10 @@ import {
  * `POST /recharge/transactions` requires `Idempotency-Key` — omit it and the server
  * answers 400 (`RechargeController.java:233-245`).
  *
- * ⚠ One of `design-api.md` §3.2's endpoints is still unbuilt and so has no method here:
- * **#16, taking a payment against a tab.** It is deferred to S6 with its design settled
- * in `implementation-plan.md` §0.7 — a receipt must clear the customer's `AR_*` legs
- * oldest-first, each naming its own business, and the ledger does not hold legacy debt
- * until the opening balances land (V30/V31). A tally-first version would post water debt
- * to `AR_RECHARGE`, so the credit book below READS and does not collect.
+ * ⚠ #16, taking a payment against a tab, allocates server-side over ledger legs
+ * oldest-first across the whole cross-business tab (`design-ledger.md` §6.3,
+ * `implementation-plan.md` §0.7) — not the tally `creditBook`/`creditStatement` read.
+ * See `settleCredit`.
  *
  * ⚠ `POST /recharge/recharges/{id}/void` (#19) IS GONE FROM THE SERVER as of 2026-10-21,
  * and the reason this comment gives has changed with it. It is no longer "built but unsafe
@@ -227,6 +227,28 @@ export class RechargeApiService {
     return this.http.get<CreditStatementResponse>(
       `${this.base}/credit/customers/${customerId}`,
       { params: new HttpParams().set('page', page).set('size', size) }
+    );
+  }
+
+  // -- 16. The credit book's one write --------------------------------------
+
+  /**
+   * A payment against a customer's tab (#16).
+   *
+   * ⚠ Same replay shape as `settle()`: the same `idempotencyKey` twice returns the
+   * ORIGINAL settlement, carried on a 409 rather than a 200 — `asReplayedCreditSettlement`
+   * in `recharge-error.ts` reads it back out. A fresh key per attempt, kept across a
+   * retry of the same amount and method, is the caller's job.
+   */
+  settleCredit(
+    customerId: number,
+    request: CreditSettlementRequest,
+    idempotencyKey: string
+  ): Observable<CreditSettlementResponse> {
+    return this.http.post<CreditSettlementResponse>(
+      `${this.base}/credit/customers/${customerId}/settlements`,
+      request,
+      { headers: { 'Idempotency-Key': idempotencyKey } }
     );
   }
 
